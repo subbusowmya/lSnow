@@ -1,0 +1,591 @@
+[
+  {
+    "bucket_key": "CYCLE_TIMING",
+    "bucket_label": "Cycle Timing & Scheduling Defects",
+    "description": "Cycles running at wrong times, duplicate runs, timezone issues, scheduler bugs, lock issues, audit trail gaps",
+    "incidents": [
+      {
+        "id": "INC-001",
+        "title": "Cycle calculation fails on month-end close",
+        "desc": "Month-end cycle run aborts with ABL error 'STOP condition encountered'. Occurs consistently when posting batch exceeds 5 000 records. Stack trace points to cycle-post.p line 312.",
+        "category": "Cycle Error",
+        "priority": "Critical",
+        "status": "Open",
+        "assignee": "Raj Patel",
+        "module": "CYCLE-MGR",
+        "date": "2025-01-03"
+      },
+      {
+        "id": "INC-005",
+        "title": "Daily cycle runs twice on weekend schedule",
+        "desc": "Job scheduler triggers CYCLE-DAILY twice on Saturday mornings at 02:00 and again at 02:05. Causes duplicate postings in GL. No changes were made to schedule config.",
+        "category": "Cycle Error",
+        "priority": "High",
+        "status": "Open",
+        "assignee": "Priya Suresh",
+        "module": "SCHEDULER",
+        "date": "2025-01-10"
+      },
+      {
+        "id": "INC-009",
+        "title": "End-of-year cycle posts to wrong fiscal period",
+        "desc": "Year-end cycle posts December transactions into January period when run after 23:00 on Dec 31. Server timezone offset (+8) not accounted for in period determination logic.",
+        "category": "Cycle Error",
+        "priority": "Critical",
+        "status": "Open",
+        "assignee": "Ahmad Zulkifli",
+        "module": "CYCLE-FISCAL",
+        "date": "2025-01-16"
+      },
+      {
+        "id": "INC-013",
+        "title": "Cycle completion email not sent to ops team",
+        "desc": "Post-cycle notification procedure notify-cycle-end.p calls SMTP relay but email is not delivered. SMTP logs show connection refused. Relay config may have changed.",
+        "category": "Cycle Error",
+        "priority": "Medium",
+        "status": "Open",
+        "assignee": "Siti Nordin",
+        "module": "NOTIFY-SVC",
+        "date": "2025-01-21"
+      },
+      {
+        "id": "INC-017",
+        "title": "Quarter-end cycle aborts on large portfolios",
+        "desc": "Q1 cycle run aborts for portfolios exceeding 10 000 holdings with out-of-memory error. Memory buffer for cycle-qtr.p is set to 2GB but large portfolios require ~3.5GB.",
+        "category": "Cycle Error",
+        "priority": "Critical",
+        "status": "Open",
+        "assignee": "Raj Patel",
+        "module": "CYCLE-QTR",
+        "date": "2025-01-27"
+      },
+      {
+        "id": "INC-021",
+        "title": "Dividend cycle calculates incorrect ex-date",
+        "desc": "Dividend cycle sets ex-date as record date minus 1 calendar day instead of minus 2 business days. Public holidays are not excluded from the calculation.",
+        "category": "Cycle Error",
+        "priority": "High",
+        "status": "Open",
+        "assignee": "Lee Wei Ming",
+        "module": "DIV-CYCLE",
+        "date": "2025-02-01"
+      },
+      {
+        "id": "INC-025",
+        "title": "Cycle lock prevents concurrent user access",
+        "desc": "When cycle is running all other users receive System locked for cycle processing even for read-only queries. Cycle lock should only block write transactions.",
+        "category": "Cycle Error",
+        "priority": "High",
+        "status": "Open",
+        "assignee": "Priya Suresh",
+        "module": "CYCLE-LOCK",
+        "date": "2025-02-07"
+      },
+      {
+        "id": "INC-029",
+        "title": "Overnight cycle posts duplicate interest entries",
+        "desc": "Overnight interest accrual cycle creates two interest entries per account when run between 00:00 and 00:05. Race condition in INTEREST-ACCRUAL.p when cycle overlaps midnight.",
+        "category": "Cycle Error",
+        "priority": "Critical",
+        "status": "In Progress",
+        "assignee": "Ahmad Zulkifli",
+        "module": "CYCLE-INTEREST",
+        "date": "2025-02-13"
+      },
+      {
+        "id": "INC-033",
+        "title": "Monthly cycle skips zero-balance accounts",
+        "desc": "Monthly fee deduction cycle omits accounts with zero balance at cycle start. Accounts that receive intraday credits after cycle initiation should still be included.",
+        "category": "Cycle Error",
+        "priority": "Medium",
+        "status": "Closed",
+        "assignee": "Siti Nordin",
+        "module": "CYCLE-MONTHLY",
+        "date": "2025-02-18"
+      },
+      {
+        "id": "INC-037",
+        "title": "Cycle audit log not written on partial run",
+        "desc": "When a cycle run is manually interrupted the cycle_audit_log table is not updated with PARTIAL_COMPLETE status. Audit trail shows cycle as Running indefinitely.",
+        "category": "Cycle Error",
+        "priority": "Medium",
+        "status": "Open",
+        "assignee": "Raj Patel",
+        "module": "CYCLE-AUDIT",
+        "date": "2025-02-24"
+      },
+      {
+        "id": "INC-041",
+        "title": "Settlement cycle fails for T+3 bond trades",
+        "desc": "Bond settlement cycle errors on T+3 trades with Settlement date cannot be in the past message. Settlement date calculation does not account for public holiday shifts.",
+        "category": "Cycle Error",
+        "priority": "High",
+        "status": "In Progress",
+        "assignee": "Lee Wei Ming",
+        "module": "SETTLE-CYCLE",
+        "date": "2025-03-01"
+      },
+      {
+        "id": "INC-045",
+        "title": "EOD cycle timing out on large fund universe",
+        "desc": "End-of-day NAV cycle times out after 4 hours for fund universes with 500+ funds. Query in nav-calc.p lacks index on FUND_STATUS filter causing full table scan.",
+        "category": "Cycle Error",
+        "priority": "Critical",
+        "status": "Open",
+        "assignee": "Priya Suresh",
+        "module": "EOD-CYCLE",
+        "date": "2025-03-05"
+      },
+      {
+        "id": "INC-049",
+        "title": "Intraday cycle double-counts pending orders",
+        "desc": "Intraday NAV cycle counts orders in PENDING_CONFIRM status twice inflating unit holdings by ~0.3% for affected funds.",
+        "category": "Cycle Error",
+        "priority": "High",
+        "status": "Open",
+        "assignee": "Ahmad Zulkifli",
+        "module": "INTRADAY-CYCLE",
+        "date": "2025-03-09"
+      }
+    ],
+    "count": 13
+  },
+  {
+    "bucket_key": "BANK_NAME_MISSING",
+    "bucket_label": "Bank Name Missing in Documents & System",
+    "description": "Bank name absent or wrong in PDFs, statements, confirmations, regulatory files, system data layer",
+    "incidents": [
+      {
+        "id": "INC-002",
+        "title": "Missing bank name in payment export file",
+        "desc": "Generated GIRO export omits bank name field (field 14) for accounts linked to foreign correspondent banks. Downstream clearing system rejects file.",
+        "category": "Bank Name Missing",
+        "priority": "High",
+        "status": "In Progress",
+        "assignee": "Siti Nordin",
+        "module": "PAY-EXPORT",
+        "date": "2025-01-05"
+      },
+      {
+        "id": "INC-006",
+        "title": "Bank name not populated on statement PDF",
+        "desc": "PDF statements show N/A in bank name field for client accounts created before system migration in Dec 2023. Data exists in legacy table BANK_REF_OLD. Mapping script needed.",
+        "category": "Bank Name Missing",
+        "priority": "Medium",
+        "status": "Resolved",
+        "assignee": "Lee Wei Ming",
+        "module": "STMT-GEN",
+        "date": "2025-01-11"
+      },
+      {
+        "id": "INC-010",
+        "title": "Bank SWIFT code missing from trade confirmation",
+        "desc": "Trade confirmation emails omit SWIFT code for counterparty banks. Template variable resolves to blank. Variable was renamed in last release without updating template.",
+        "category": "Bank Name Missing",
+        "priority": "Medium",
+        "status": "Closed",
+        "assignee": "Priya Suresh",
+        "module": "TRADE-CONFIRM",
+        "date": "2025-01-17"
+      },
+      {
+        "id": "INC-014",
+        "title": "Bank name truncated at 30 chars in reports",
+        "desc": "Report layout allocates only 30 characters for bank name field. Banks with longer names are truncated. Field width needs to be increased.",
+        "category": "Bank Name Missing",
+        "priority": "Low",
+        "status": "Closed",
+        "assignee": "Ahmad Zulkifli",
+        "module": "RPT-ENGINE",
+        "date": "2025-01-22"
+      },
+      {
+        "id": "INC-018",
+        "title": "Bank name field blank in KYC documents",
+        "desc": "Auto-generated KYC PDF documents have blank bank name in section 4. KYC template references old field name BANK_DISPLAY_NAME which was renamed to BANK_FULL_NAME.",
+        "category": "Bank Name Missing",
+        "priority": "High",
+        "status": "In Progress",
+        "assignee": "Siti Nordin",
+        "module": "KYC-DOC-GEN",
+        "date": "2025-01-28"
+      },
+      {
+        "id": "INC-022",
+        "title": "Missing bank details on investor statement",
+        "desc": "Annual investor statements omit beneficiary bank details for direct credit clients. Data exists but the statement merge procedure SELECT is missing the JOIN to BANK_DETAIL.",
+        "category": "Bank Name Missing",
+        "priority": "Medium",
+        "status": "Closed",
+        "assignee": "Raj Patel",
+        "module": "INV-STMT",
+        "date": "2025-02-03"
+      },
+      {
+        "id": "INC-026",
+        "title": "Bank routing number absent in wire instructions",
+        "desc": "Wire transfer instruction documents omit ABA routing number for US correspondent banks. Field ROUTING_NO is populated but not included in the document template merge.",
+        "category": "Bank Name Missing",
+        "priority": "High",
+        "status": "In Progress",
+        "assignee": "Lee Wei Ming",
+        "module": "WIRE-INSTR",
+        "date": "2025-02-08"
+      },
+      {
+        "id": "INC-030",
+        "title": "Bank name missing from FATCA reporting file",
+        "desc": "FATCA XML report omits FinancialInstitution/Name element for non-Malaysian custodian banks. Foreign bank names are stored in a separate table not queried by the report procedure.",
+        "category": "Bank Name Missing",
+        "priority": "High",
+        "status": "Open",
+        "assignee": "Priya Suresh",
+        "module": "FATCA-RPT",
+        "date": "2025-02-14"
+      },
+      {
+        "id": "INC-034",
+        "title": "Counterparty bank name wrong in confirmations",
+        "desc": "Trade confirmations display old bank name for counterparties that changed their bank name. System is reading from BANK_MASTER cache which is refreshed only weekly.",
+        "category": "Bank Name Missing",
+        "priority": "High",
+        "status": "Open",
+        "assignee": "Ahmad Zulkifli",
+        "module": "CONFIRM-GEN",
+        "date": "2025-02-20"
+      },
+      {
+        "id": "INC-038",
+        "title": "Bank identifier code blank in Swift messages",
+        "desc": "Outbound MT103 and MT202 SWIFT messages have empty field 57A Account with Institution. BIC lookup fails for banks that joined after the last SWIFT directory import.",
+        "category": "Bank Name Missing",
+        "priority": "Critical",
+        "status": "In Progress",
+        "assignee": "Siti Nordin",
+        "module": "SWIFT-MSG",
+        "date": "2025-02-25"
+      },
+      {
+        "id": "INC-042",
+        "title": "Beneficiary bank name missing in ACH file",
+        "desc": "ACH batch file field 8 Receiving DFI Name is blank for 23 transactions. Affects banks where name contains special characters ampersands are stripped by the sanitisation routine.",
+        "category": "Bank Name Missing",
+        "priority": "Medium",
+        "status": "Open",
+        "assignee": "Raj Patel",
+        "module": "ACH-GEN",
+        "date": "2025-03-02"
+      },
+      {
+        "id": "INC-046",
+        "title": "Bank name not displayed in transaction history",
+        "desc": "Transaction history screen shows bank account number but not bank name for inter-bank transfers. Bank name lookup JOIN is commented out in the transaction history view procedure.",
+        "category": "Bank Name Missing",
+        "priority": "Low",
+        "status": "Closed",
+        "assignee": "Lee Wei Ming",
+        "module": "TXN-HISTORY",
+        "date": "2025-03-06"
+      },
+      {
+        "id": "INC-050",
+        "title": "Bank name field missing from CRS XML export",
+        "desc": "CRS regulatory XML export omits the FIName element for non-Malaysian reportable accounts. Foreign institution names must be included per OECD CRS schema v2.0 requirements.",
+        "category": "Bank Name Missing",
+        "priority": "High",
+        "status": "In Progress",
+        "assignee": "Priya Suresh",
+        "module": "CRS-EXPORT",
+        "date": "2025-03-10"
+      }
+    ],
+    "count": 13
+  },
+  {
+    "bucket_key": "BANK_SETUP_MISSING",
+    "bucket_label": "Bank Setup Missing for Funds, Clients & Instructions",
+    "description": "Custodian, trustee, agent, or settlement bank not configured for funds or clients",
+    "incidents": [
+      {
+        "id": "INC-003",
+        "title": "Bank setup wizard skips BIC code entry",
+        "desc": "When adding a new bank record the BIC/SWIFT field is not displayed. Field exists in schema but UI step 3 is not rendering the control. Affects all newly added banks.",
+        "category": "Bank Setup Missing",
+        "priority": "High",
+        "status": "Open",
+        "assignee": "Unassigned",
+        "module": "BANK-SETUP",
+        "date": "2025-01-07"
+      },
+      {
+        "id": "INC-007",
+        "title": "Remittance bank details absent for new clients",
+        "desc": "New clients registered via API onboarding have empty bank_details_id. The onboarding API endpoint does not call the bank-setup post-processing procedure.",
+        "category": "Bank Setup Missing",
+        "priority": "High",
+        "status": "Open",
+        "assignee": "Raj Patel",
+        "module": "CLIENT-ONBOARD",
+        "date": "2025-01-13"
+      },
+      {
+        "id": "INC-011",
+        "title": "Custodian bank not set up for new fund",
+        "desc": "Fund TF-2025-003 launched without custodian bank record. NAV calculation module throws SYSERR-204 when attempting to settle transactions. Fund is currently unable to trade.",
+        "category": "Bank Setup Missing",
+        "priority": "Critical",
+        "status": "In Progress",
+        "assignee": "Lee Wei Ming",
+        "module": "FUND-MGMT",
+        "date": "2025-01-18"
+      },
+      {
+        "id": "INC-015",
+        "title": "Interest rate not defaulted in bank setup",
+        "desc": "New bank records do not inherit default interest rate tier from parent bank group. DEFAULT-RATE procedure is not called during bank record creation.",
+        "category": "Bank Setup Missing",
+        "priority": "Medium",
+        "status": "In Progress",
+        "assignee": "Priya Suresh",
+        "module": "BANK-SETUP",
+        "date": "2025-01-23"
+      },
+      {
+        "id": "INC-019",
+        "title": "Clearing bank missing for FX settlement",
+        "desc": "FX settlement module cannot find clearing bank for USD/MYR trades. Clearing bank record for CIMB Forex exists but is not linked to the FX settlement profile.",
+        "category": "Bank Setup Missing",
+        "priority": "High",
+        "status": "Open",
+        "assignee": "Ahmad Zulkifli",
+        "module": "FX-SETTLE",
+        "date": "2025-01-29"
+      },
+      {
+        "id": "INC-023",
+        "title": "Trustee bank account not configured for fund",
+        "desc": "Fund IFX-007 missing trustee bank account configuration. Distribution payments are failing at payment gateway with error PAYGT-NO-TRUSTEE.",
+        "category": "Bank Setup Missing",
+        "priority": "Critical",
+        "status": "In Progress",
+        "assignee": "Siti Nordin",
+        "module": "TRUSTEE-MGMT",
+        "date": "2025-02-04"
+      },
+      {
+        "id": "INC-027",
+        "title": "Standing instruction bank not set",
+        "desc": "New standing instructions created via bulk upload do not have beneficiary bank assigned. Bulk upload procedure inserts standing_instruction records but skips bank_link table.",
+        "category": "Bank Setup Missing",
+        "priority": "Medium",
+        "status": "Open",
+        "assignee": "Raj Patel",
+        "module": "STANDING-INSTR",
+        "date": "2025-02-10"
+      },
+      {
+        "id": "INC-031",
+        "title": "Nominee bank account setup incomplete",
+        "desc": "Nominee accounts created in batch do not have associated bank accounts. Batch creation script does not invoke the bank account setup sub-procedure.",
+        "category": "Bank Setup Missing",
+        "priority": "High",
+        "status": "Open",
+        "assignee": "Lee Wei Ming",
+        "module": "NOMINEE-MGMT",
+        "date": "2025-02-15"
+      },
+      {
+        "id": "INC-035",
+        "title": "Default settlement bank not assigned to manager",
+        "desc": "Fund manager accounts created after Jan 2025 do not have a default settlement bank. The setup wizard v2.1 omitted the bank assignment step introduced in v2.0.",
+        "category": "Bank Setup Missing",
+        "priority": "Medium",
+        "status": "In Progress",
+        "assignee": "Priya Suresh",
+        "module": "FUND-MGR-SETUP",
+        "date": "2025-02-21"
+      },
+      {
+        "id": "INC-039",
+        "title": "EPF bank details not configured",
+        "desc": "EPF contribution module cannot locate bank details for new employer accounts. EPF-BANK-SETUP flag is not set during employer registration flow in the latest release.",
+        "category": "Bank Setup Missing",
+        "priority": "High",
+        "status": "Open",
+        "assignee": "Ahmad Zulkifli",
+        "module": "EPF-MODULE",
+        "date": "2025-02-26"
+      },
+      {
+        "id": "INC-043",
+        "title": "Agent bank not set up for distribution fund",
+        "desc": "Distribution fund DF-2025-012 has no agent bank configured. Investor subscription proceeds cannot be received. Fund was cloned from a template that had agent bank cleared.",
+        "category": "Bank Setup Missing",
+        "priority": "High",
+        "status": "Open",
+        "assignee": "Siti Nordin",
+        "module": "DIST-FUND",
+        "date": "2025-03-03"
+      },
+      {
+        "id": "INC-047",
+        "title": "Custodian sub-account bank setup missing",
+        "desc": "Custodian sub-accounts for foreign securities do not have bank setup completed. Sub-account creation wizard exits after step 2 without proceeding to bank configuration step 3.",
+        "category": "Bank Setup Missing",
+        "priority": "Medium",
+        "status": "In Progress",
+        "assignee": "Raj Patel",
+        "module": "CUSTODIAN",
+        "date": "2025-03-07"
+      }
+    ],
+    "count": 12
+  },
+  {
+    "bucket_key": "NAV_ERROR",
+    "bucket_label": "Navigation & Routing Defects",
+    "description": "Menus freezing, collapsing, wrong redirects, 404s, keyboard conflicts, session issues",
+    "incidents": [
+      {
+        "id": "INC-004",
+        "title": "Navigation menu freezes on Fund Admin role",
+        "desc": "After login as Fund Administrator the left nav panel becomes unresponsive. JavaScript console shows 'Cannot read property role of undefined'. Reproducible every time.",
+        "category": "Nav Error",
+        "priority": "Critical",
+        "status": "In Progress",
+        "assignee": "Ahmad Zulkifli",
+        "module": "MENU-CTRL",
+        "date": "2025-01-08"
+      },
+      {
+        "id": "INC-008",
+        "title": "Back button on portfolio nav causes page reload",
+        "desc": "Clicking browser back from portfolio detail returns to login screen instead of portfolio list. Session token is invalidated incorrectly on state pop.",
+        "category": "Nav Error",
+        "priority": "Medium",
+        "status": "Resolved",
+        "assignee": "Siti Nordin",
+        "module": "PORTFOLIO-UI",
+        "date": "2025-01-14"
+      },
+      {
+        "id": "INC-012",
+        "title": "Sidebar nav collapses unexpectedly on resize",
+        "desc": "When browser window is resized below 1280px width the sidebar collapses to icon mode and does not re-expand on resize. Affects users with smaller monitors.",
+        "category": "Nav Error",
+        "priority": "Low",
+        "status": "Resolved",
+        "assignee": "Raj Patel",
+        "module": "LAYOUT-ENGINE",
+        "date": "2025-01-20"
+      },
+      {
+        "id": "INC-016",
+        "title": "Dropdown nav breaks with 12+ menu items",
+        "desc": "When a nav section has more than 12 items the dropdown renders off-screen and items are inaccessible. Affects Compliance module with 15 sub-menu items.",
+        "category": "Nav Error",
+        "priority": "Medium",
+        "status": "Open",
+        "assignee": "Lee Wei Ming",
+        "module": "MENU-CTRL",
+        "date": "2025-01-25"
+      },
+      {
+        "id": "INC-020",
+        "title": "Mobile nav hamburger menu unresponsive",
+        "desc": "On mobile view the hamburger menu icon does not respond to tap events. Touch event listener is attached to the desktop element ID which does not exist on mobile DOM.",
+        "category": "Nav Error",
+        "priority": "High",
+        "status": "Resolved",
+        "assignee": "Priya Suresh",
+        "module": "MOBILE-UI",
+        "date": "2025-01-30"
+      },
+      {
+        "id": "INC-024",
+        "title": "Breadcrumb nav shows wrong parent module",
+        "desc": "Breadcrumb trail on trade detail page shows Reports > Trade Detail instead of Trading > Trade Detail. Parent module lookup uses page ID instead of module hierarchy.",
+        "category": "Nav Error",
+        "priority": "Low",
+        "status": "Resolved",
+        "assignee": "Ahmad Zulkifli",
+        "module": "BREADCRUMB",
+        "date": "2025-02-06"
+      },
+      {
+        "id": "INC-028",
+        "title": "Tab navigation skips mandatory fields",
+        "desc": "Pressing Tab on form pages skips over mandatory fields marked with red asterisk. Tab order index is set to -1 on required fields after a recent UI refactor.",
+        "category": "Nav Error",
+        "priority": "Medium",
+        "status": "Open",
+        "assignee": "Siti Nordin",
+        "module": "FORM-ENGINE",
+        "date": "2025-02-11"
+      },
+      {
+        "id": "INC-032",
+        "title": "Quick nav search returns no results",
+        "desc": "Quick navigation search bar Ctrl+K returns empty results for all queries since the Feb 10 release. Search index was not rebuilt after the menu restructure.",
+        "category": "Nav Error",
+        "priority": "Medium",
+        "status": "Resolved",
+        "assignee": "Raj Patel",
+        "module": "SEARCH-NAV",
+        "date": "2025-02-17"
+      },
+      {
+        "id": "INC-036",
+        "title": "Keyboard shortcut nav conflicts with browser",
+        "desc": "Alt+Left shortcut for navigating to previous page conflicts with browser back shortcut. Application should use Ctrl+[ and Ctrl+] for in-app navigation instead.",
+        "category": "Nav Error",
+        "priority": "Low",
+        "status": "Closed",
+        "assignee": "Lee Wei Ming",
+        "module": "KEYBOARD-NAV",
+        "date": "2025-02-22"
+      },
+      {
+        "id": "INC-040",
+        "title": "Deep-link nav URL returns 404 after login",
+        "desc": "Users who access a direct URL while logged out are redirected to login but after authentication are taken to dashboard instead of the original deep-link destination.",
+        "category": "Nav Error",
+        "priority": "High",
+        "status": "Open",
+        "assignee": "Priya Suresh",
+        "module": "AUTH-REDIRECT",
+        "date": "2025-02-27"
+      },
+      {
+        "id": "INC-044",
+        "title": "Context menu nav disappears on hover",
+        "desc": "Right-click context menu in the data grid disappears immediately when mouse moves from trigger element to menu. CSS hover gap between trigger and menu needs to be filled.",
+        "category": "Nav Error",
+        "priority": "Medium",
+        "status": "Resolved",
+        "assignee": "Ahmad Zulkifli",
+        "module": "CONTEXT-MENU",
+        "date": "2025-03-04"
+      },
+      {
+        "id": "INC-048",
+        "title": "Nav scroll position resets on page refresh",
+        "desc": "When user refreshes the page the navigation sidebar scroll position resets to top. Users with many menu items lose their place frequently. Scroll position should be persisted in sessionStorage.",
+        "category": "Nav Error",
+        "priority": "Low",
+        "status": "Open",
+        "assignee": "Siti Nordin",
+        "module": "STATE-MGR",
+        "date": "2025-03-08"
+      }
+    ],
+    "count": 12
+  },
+  {
+    "bucket_key": "UNCATEGORISED",
+    "bucket_label": "Uncategorised / Other",
+    "description": "Incidents that did not match any root-cause bucket",
+    "count": 0,
+    "incidents": []
+  }
+]
