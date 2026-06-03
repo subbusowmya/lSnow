@@ -421,7 +421,7 @@ function saveIncident() {
     const r = filtered[editIdx];
     const di = data.indexOf(r);
     data[di] = { ...r, title, category, priority, status, assignee, client, module: module_, desc };
-    saveToSheet();
+    saveLocal(); saveToSheet();
     closeModal(); applyFilter(); return;
   }
 
@@ -450,14 +450,14 @@ function saveIncident() {
   }
 
   data.unshift(newInc);
-  saveToSheet();
+  saveLocal(); saveToSheet();
   closeModal(); applyFilter();
 }
 
 function deleteIncident(idx) {
   if (!confirm('Delete this incident?')) return;
   data = data.filter(d => d !== filtered[idx]);
-  saveToSheet();
+  saveLocal(); saveToSheet();
   applyFilter();
 }
 
@@ -512,11 +512,11 @@ function saveEditNote(i) {
   const txt = document.getElementById('wn-inp-'+i).value.trim();
   if (!txt) return;
   notes[i].text=txt; notes[i].edited=true;
-  data[di].worknotes=notes; saveToSheet(); renderWorknotes(notes);
+  data[di].worknotes=notes; saveLocal(); saveToSheet(); renderWorknotes(notes);
 }
 function deleteNote(i) {
   const {di,notes} = getNotes();
-  notes.splice(i,1); data[di].worknotes=notes; saveToSheet(); renderWorknotes(notes);
+  notes.splice(i,1); data[di].worknotes=notes; saveLocal(); saveToSheet(); renderWorknotes(notes);
 }
 
 function addWorknote() {
@@ -530,7 +530,7 @@ function addWorknote() {
   if (!data[di].worknotes) data[di].worknotes=[];
   data[di].worknotes.push({author,ts,text:txt,edited:false});
   document.getElementById('f-worknote').value='';
-  saveToSheet();
+  saveLocal(); saveToSheet();
   renderWorknotes(data[di].worknotes);
 }
 
@@ -585,12 +585,35 @@ function linkToSimilar(id) {
   document.getElementById('similar-panel').style.display='none';
 }
 
-// ── Google Sheets API ─────────────────────────────────
+// ── Storage (localStorage primary, Sheet backup) ──────
+const STORAGE_KEY = 'iDatabase_v1';
 const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxyT8zRbHVcSw9oFrARGO1hE-zpGXReCadJDXKeW6Sz0i0_b1Xy9hjwoKgxsaFRQQoSKw/exec';
 
-async function loadFromSheet() {
+function saveLocal() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
+}
+
+function loadLocal() {
   try {
-    showGhToast('⏳ Loading incidents…', 'var(--muted)');
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed && parsed.length) { data = parsed; return true; }
+    }
+  } catch(e) {}
+  return false;
+}
+
+async function saveToSheet() {
+  try {
+    const formData = new FormData();
+    formData.append('data', JSON.stringify({ action: 'save_all', incidents: data }));
+    await fetch(SHEET_URL, { method: 'POST', mode: 'no-cors', body: formData });
+  } catch(e) { console.warn('Sheet save failed:', e.message); }
+}
+
+async function syncFromSheet() {
+  try {
     const res = await fetch(SHEET_URL + '?t=' + Date.now());
     const text = await res.text();
     const rows = JSON.parse(text);
@@ -599,27 +622,12 @@ async function loadFromSheet() {
         ...r,
         worknotes: typeof r.worknotes === 'string' ? JSON.parse(r.worknotes || '[]') : (r.worknotes || [])
       }));
-      showGhToast('✓ Loaded ' + data.length + ' incidents', 'var(--medium)');
-    } else {
-      showGhToast('⏳ Seeding sheet…', 'var(--muted)');
-      await saveToSheet();
-      showGhToast('✓ Sheet seeded with ' + data.length + ' incidents', 'var(--medium)');
+      saveLocal();
+      filtered = [...data];
+      applyFilter();
+      showGhToast('✓ Synced ' + data.length + ' incidents from sheet', 'var(--medium)');
     }
-  } catch(e) {
-    showGhToast('⚠ Could not reach sheet — showing local data', 'var(--high)');
-  }
-  filtered = [...data];
-  applyFilter();
-}
-
-async function saveToSheet() {
-  try {
-    const formData = new FormData();
-    formData.append('data', JSON.stringify({ action: 'save_all', incidents: data }));
-    await fetch(SHEET_URL, { method: 'POST', mode: 'no-cors', body: formData });
-  } catch(e) {
-    console.warn('Sheet save failed:', e.message);
-  }
+  } catch(e) { console.warn('Sheet sync failed:', e.message); }
 }
 
 function showGhToast(msg, color) {
@@ -657,7 +665,7 @@ async function pushAllToSheet() {
   const btn = document.getElementById('push-btn');
   btn.textContent = '⏳ Pushing…';
   btn.disabled = true;
-  await saveToSheet();
+  saveLocal(); saveToSheet();
   btn.textContent = '✅ Done!';
   setTimeout(() => { btn.textContent = '⬆ Push to Sheet'; btn.disabled = false; }, 3000);
 }
@@ -672,7 +680,12 @@ function exportCSV() {
 
 // ── Init ──────────────────────────────────────────────
 document.getElementById('modal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
-loadFromSheet();
+// Load from localStorage instantly (no flicker)
+if (!loadLocal()) saveLocal(); // first visit — save defaults
+filtered = [...data];
+applyFilter();
+// Then sync from sheet in background (picks up manager's changes)
+syncFromSheet();
 </script>
 </body>
 </html>
