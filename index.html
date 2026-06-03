@@ -418,7 +418,7 @@ function saveIncident() {
     const r = filtered[editIdx];
     const di = data.indexOf(r);
     data[di] = { ...r, title, category, priority, status, assignee, client, module: module_, desc };
-    saveToStorage();
+    saveToSheet();
     closeModal(); applyFilter(); return;
   }
 
@@ -447,14 +447,14 @@ function saveIncident() {
   }
 
   data.unshift(newInc);
-  saveToStorage();
+  saveToSheet();
   closeModal(); applyFilter();
 }
 
 function deleteIncident(idx) {
   if (!confirm('Delete this incident?')) return;
   data = data.filter(d => d !== filtered[idx]);
-  saveToStorage();
+  saveToSheet();
   applyFilter();
 }
 
@@ -509,11 +509,11 @@ function saveEditNote(i) {
   const txt = document.getElementById('wn-inp-'+i).value.trim();
   if (!txt) return;
   notes[i].text=txt; notes[i].edited=true;
-  data[di].worknotes=notes; saveToStorage(); renderWorknotes(notes);
+  data[di].worknotes=notes; saveToSheet(); renderWorknotes(notes);
 }
 function deleteNote(i) {
   const {di,notes} = getNotes();
-  notes.splice(i,1); data[di].worknotes=notes; saveToStorage(); renderWorknotes(notes);
+  notes.splice(i,1); data[di].worknotes=notes; saveToSheet(); renderWorknotes(notes);
 }
 
 function addWorknote() {
@@ -527,7 +527,7 @@ function addWorknote() {
   if (!data[di].worknotes) data[di].worknotes=[];
   data[di].worknotes.push({author,ts,text:txt,edited:false});
   document.getElementById('f-worknote').value='';
-  saveToStorage();
+  saveToSheet();
   renderWorknotes(data[di].worknotes);
 }
 
@@ -582,35 +582,53 @@ function linkToSimilar(id) {
   document.getElementById('similar-panel').style.display='none';
 }
 
-// ── Local Storage Persistence ─────────────────────────
-const STORAGE_KEY = 'iDatabase_incidents';
+// ── Google Sheets API ─────────────────────────────────
+const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxyT8zRbHVcSw9oFrARGO1hE-zpGXReCadJDXKeW6Sz0i0_b1Xy9hjwoKgxsaFRQQoSKw/exec';
 
-function saveToStorage() {
+async function loadFromSheet() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    showGhToast('⏳ Loading incidents…', 'var(--muted)');
+    const res = await fetch(SHEET_URL);
+    const rows = await res.json();
+    if (rows && rows.length) {
+      data = rows.map(r => ({
+        ...r,
+        worknotes: typeof r.worknotes === 'string' ? JSON.parse(r.worknotes || '[]') : (r.worknotes || [])
+      }));
+      showGhToast('✓ Loaded ' + data.length + ' incidents', 'var(--medium)');
+    } else {
+      // Sheet empty — push default data
+      await saveToSheet();
+    }
   } catch(e) {
-    console.warn('Storage save failed:', e.message);
+    showGhToast('⚠ Could not load sheet: ' + e.message, 'var(--critical)');
+  }
+  filtered = [...data];
+  applyFilter();
+}
+
+async function saveToSheet() {
+  try {
+    await fetch(SHEET_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'save_all', incidents: data })
+    });
+  } catch(e) {
+    console.warn('Sheet save failed:', e.message);
   }
 }
 
-function loadFromStorage() {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (parsed && parsed.length >= data.length) {
-        data = parsed;
-      } else {
-        // storage has less than default - use default and save it
-        saveToStorage();
-      }
-    } else {
-      // first time - save default data to storage
-      saveToStorage();
-    }
-  } catch(e) {
-    console.warn('Storage load failed:', e.message);
-  }
+function showGhToast(msg, color) {
+  const old = document.getElementById('gh-toast');
+  if (old) old.remove();
+  const t = document.createElement('div');
+  t.id = 'gh-toast';
+  t.style.cssText = `position:fixed;bottom:8px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid ${color};color:${color};border-radius:6px;padding:8px 18px;font-size:.8rem;font-weight:600;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.4);`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
 }
 function showMatchToast(newId, matches) {
   const old=document.getElementById('match-toast'); if(old) old.remove();
@@ -643,9 +661,7 @@ function exportCSV() {
 
 // ── Init ──────────────────────────────────────────────
 document.getElementById('modal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
-loadFromStorage();
-filtered = [...data];
-applyFilter();
+loadFromSheet();
 </script>
 </body>
 </html>
