@@ -105,7 +105,10 @@
 <header>
   <div class="logo">lservicenow <span>iDatabase</span></div>
   <span class="header-badge">LIVE Dashboard</span>
-  <button class="btn btn-secondary" onclick="exportCSV()">Export CSV</button>
+  <div style="display:flex;gap:8px;">
+    <button class="btn btn-secondary" id="push-btn" onclick="pushAllToSheet()" style="background:#1a3a6b;color:#fff;border-color:#1a3a6b;display:none;">⬆ Push to Sheet</button>
+    <button class="btn btn-secondary" onclick="exportCSV()">Export CSV</button>
+  </div>
 </header>
 
 <main>
@@ -649,6 +652,15 @@ function showMatchToast(newId, matches) {
     </div>`;
   document.body.appendChild(t);
   setTimeout(()=>{if(t.parentNode)t.remove();},8000);
+}
+
+async function pushAllToSheet() {
+  const btn = document.getElementById('push-btn');
+  btn.textContent = '⏳ Pushing…';
+  btn.disabled = true;
+  await saveToSheet();
+  btn.textContent = '✅ Done!';
+  setTimeout(() => { btn.textContent = '⬆ Push to Sheet'; btn.disabled = false; }, 3000);
 }
 
 // ── CSV Export ────────────────────────────────────────
