@@ -418,6 +418,7 @@ function saveIncident() {
     const r = filtered[editIdx];
     const di = data.indexOf(r);
     data[di] = { ...r, title, category, priority, status, assignee, client, module: module_, desc };
+    saveToStorage();
     closeModal(); applyFilter(); return;
   }
 
@@ -443,16 +444,17 @@ function saveIncident() {
       data[di].worknotes.push({ author:'System', ts, text:'AUTO-MATCH: New incident '+id+' ('+title+') may be related.', edited:false });
     });
     showMatchToast(id, matches);
-    dispatchBucketsUpdate(newInc, matches, ts);
   }
 
   data.unshift(newInc);
+  saveToStorage();
   closeModal(); applyFilter();
 }
 
 function deleteIncident(idx) {
   if (!confirm('Delete this incident?')) return;
   data = data.filter(d => d !== filtered[idx]);
+  saveToStorage();
   applyFilter();
 }
 
@@ -507,11 +509,11 @@ function saveEditNote(i) {
   const txt = document.getElementById('wn-inp-'+i).value.trim();
   if (!txt) return;
   notes[i].text=txt; notes[i].edited=true;
-  data[di].worknotes=notes; renderWorknotes(notes);
+  data[di].worknotes=notes; saveToStorage(); renderWorknotes(notes);
 }
 function deleteNote(i) {
   const {di,notes} = getNotes();
-  notes.splice(i,1); data[di].worknotes=notes; renderWorknotes(notes);
+  notes.splice(i,1); data[di].worknotes=notes; saveToStorage(); renderWorknotes(notes);
 }
 
 function addWorknote() {
@@ -525,6 +527,7 @@ function addWorknote() {
   if (!data[di].worknotes) data[di].worknotes=[];
   data[di].worknotes.push({author,ts,text:txt,edited:false});
   document.getElementById('f-worknote').value='';
+  saveToStorage();
   renderWorknotes(data[di].worknotes);
 }
 
@@ -579,81 +582,30 @@ function linkToSimilar(id) {
   document.getElementById('similar-panel').style.display='none';
 }
 
-// ── Pipedream proxy (no token in HTML) ───────────────
-const PIPEDREAM_URL = 'https://eop5m8zuhbjk9dl.m.pipedream.net';
+// ── Local Storage Persistence ─────────────────────────
+const STORAGE_KEY = 'iDatabase_incidents';
 
-async function dispatchBucketsUpdate(newInc, matches, ts) {
-  // Load current buckets from GitHub (public repo, no token needed to read)
-  let bucketsData = [];
+function saveToStorage() {
   try {
-    const res = await fetch('https://raw.githubusercontent.com/subbusowmya/lSnow/main/buckets.json');
-    bucketsData = await res.json();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch(e) {
-    showGhToast('⚠ Could not load buckets.json', 'var(--critical)');
-    return;
-  }
-
-  // Add new incident to its bucket
-  const BUCKET_MAP = {
-    'Cycle Error':        'CYCLE_TIMING',
-    'Bank Name Missing':  'BANK_NAME_MISSING',
-    'Bank Setup Missing': 'BANK_SETUP_MISSING',
-    'Nav Error':          'NAV_ERROR',
-  };
-  const bucketKey = BUCKET_MAP[newInc.category] || 'UNCATEGORISED';
-  const bi = bucketsData.findIndex(b => b.bucket_key === bucketKey);
-  if (bi >= 0) {
-    bucketsData[bi].incidents.push({
-      id: newInc.id, title: newInc.title, desc: newInc.desc,
-      category: newInc.category, priority: newInc.priority,
-      status: newInc.status, assignee: newInc.assignee,
-      module: newInc.module, date: newInc.date, worknotes: newInc.worknotes
-    });
-    bucketsData[bi].count = bucketsData[bi].incidents.length;
-  }
-
-  // Add auto-notes to matched incidents in buckets
-  matches.forEach(match => {
-    bucketsData.forEach(bucket => {
-      const inc = bucket.incidents.find(i => i.id === match.id);
-      if (inc) {
-        if (!inc.worknotes) inc.worknotes = [];
-        const alreadyAdded = inc.worknotes.some(n => n.text && n.text.includes(newInc.id));
-        if (!alreadyAdded) {
-          inc.worknotes.push({
-            author: 'System', ts,
-            text: 'AUTO-MATCH: New incident ' + newInc.id + ' (' + newInc.title + ') may be related.',
-            edited: false
-          });
-        }
-      }
-    });
-  });
-
-  // Send to Pipedream — it writes to GitHub securely
-  try {
-    showGhToast('⏳ Updating buckets.json…', 'var(--muted)');
-    const res = await fetch(PIPEDREAM_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ buckets: bucketsData, incident_id: newInc.id, ts })
-    });
-    if (!res.ok) throw new Error('Pipedream returned ' + res.status);
-    showGhToast('✓ buckets.json updated on GitHub', 'var(--medium)');
-  } catch(e) {
-    showGhToast('⚠ Update failed: ' + e.message, 'var(--critical)');
+    console.warn('Storage save failed:', e.message);
   }
 }
 
-function showGhToast(msg, color) {
-  const old = document.getElementById('gh-toast');
-  if (old) old.remove();
-  const t = document.createElement('div');
-  t.id = 'gh-toast';
-  t.style.cssText = `position:fixed;bottom:8px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid ${color};color:${color};border-radius:6px;padding:8px 18px;font-size:.8rem;font-weight:600;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.4);`;
-  t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), 5000);
+function loadFromStorage() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed && parsed.length) {
+        data = parsed;
+        console.log('Loaded', data.length, 'incidents from storage');
+      }
+    }
+  } catch(e) {
+    console.warn('Storage load failed:', e.message);
+  }
 }
 function showMatchToast(newId, matches) {
   const old=document.getElementById('match-toast'); if(old) old.remove();
@@ -686,6 +638,7 @@ function exportCSV() {
 
 // ── Init ──────────────────────────────────────────────
 document.getElementById('modal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
+loadFromStorage();
 filtered = [...data];
 applyFilter();
 </script>
