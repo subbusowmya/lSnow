@@ -600,11 +600,14 @@ async function loadFromSheet() {
       }));
       showGhToast('✓ Loaded ' + data.length + ' incidents', 'var(--medium)');
     } else {
-      // Sheet empty — push default data
+      // Sheet empty — use hardcoded data, push to sheet
+      showGhToast('⏳ Seeding sheet with default data…', 'var(--muted)');
       await saveToSheet();
+      showGhToast('✓ Sheet seeded with ' + data.length + ' incidents', 'var(--medium)');
     }
   } catch(e) {
-    showGhToast('⚠ Could not load sheet: ' + e.message, 'var(--critical)');
+    // Network error — just show hardcoded data
+    showGhToast('⚠ Could not reach sheet — showing local data', 'var(--high)');
   }
   filtered = [...data];
   applyFilter();
