@@ -591,8 +591,9 @@ const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxyT8zRbHVcSw9oFrARGO
 async function loadFromSheet() {
   try {
     showGhToast('⏳ Loading incidents…', 'var(--muted)');
-    const res = await fetch(SHEET_URL);
-    const rows = await res.json();
+    const res = await fetch(SHEET_URL + '?t=' + Date.now());
+    const text = await res.text();
+    const rows = JSON.parse(text);
     if (rows && rows.length) {
       data = rows.map(r => ({
         ...r,
@@ -600,13 +601,11 @@ async function loadFromSheet() {
       }));
       showGhToast('✓ Loaded ' + data.length + ' incidents', 'var(--medium)');
     } else {
-      // Sheet empty — use hardcoded data, push to sheet
-      showGhToast('⏳ Seeding sheet with default data…', 'var(--muted)');
+      showGhToast('⏳ Seeding sheet…', 'var(--muted)');
       await saveToSheet();
       showGhToast('✓ Sheet seeded with ' + data.length + ' incidents', 'var(--medium)');
     }
   } catch(e) {
-    // Network error — just show hardcoded data
     showGhToast('⚠ Could not reach sheet — showing local data', 'var(--high)');
   }
   filtered = [...data];
@@ -615,12 +614,9 @@ async function loadFromSheet() {
 
 async function saveToSheet() {
   try {
-    await fetch(SHEET_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'save_all', incidents: data })
-    });
+    const formData = new FormData();
+    formData.append('data', JSON.stringify({ action: 'save_all', incidents: data }));
+    await fetch(SHEET_URL, { method: 'POST', mode: 'no-cors', body: formData });
   } catch(e) {
     console.warn('Sheet save failed:', e.message);
   }
