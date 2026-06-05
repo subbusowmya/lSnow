@@ -421,8 +421,8 @@ function saveIncident() {
     const r = filtered[editIdx];
     const di = data.indexOf(r);
     data[di] = { ...r, title, category, priority, status, assignee, client, module: module_, desc };
-    saveLocal();
-    closeModal(); applyFilter(); return;
+    closeModal(); applyFilter();
+    updateIncidentInSB(data[di]); return;
   }
 
   // new incident
@@ -445,20 +445,22 @@ function saveIncident() {
       const di = data.indexOf(m);
       if (!data[di].worknotes) data[di].worknotes = [];
       data[di].worknotes.push({ author:'System', ts, text:'AUTO-MATCH: New incident '+id+' ('+title+') may be related.', edited:false });
+      updateIncidentInSB(data[di]);
     });
     showMatchToast(id, matches);
   }
 
   data.unshift(newInc);
-  saveLocal();
   closeModal(); applyFilter();
+  saveIncidentToSB(newInc);
 }
 
 function deleteIncident(idx) {
   if (!confirm('Delete this incident?')) return;
-  data = data.filter(d => d !== filtered[idx]);
-  saveLocal();
+  const r = filtered[idx];
+  data = data.filter(d => d !== r);
   applyFilter();
+  deleteIncidentFromSB(r.id);
 }
 
 // ── Work Notes ────────────────────────────────────────
@@ -512,11 +514,11 @@ function saveEditNote(i) {
   const txt = document.getElementById('wn-inp-'+i).value.trim();
   if (!txt) return;
   notes[i].text=txt; notes[i].edited=true;
-  data[di].worknotes=notes; saveLocal(); renderWorknotes(notes);
+  data[di].worknotes=notes; renderWorknotes(notes); updateIncidentInSB(data[di]);
 }
 function deleteNote(i) {
   const {di,notes} = getNotes();
-  notes.splice(i,1); data[di].worknotes=notes; saveLocal(); renderWorknotes(notes);
+  notes.splice(i,1); data[di].worknotes=notes; renderWorknotes(notes); updateIncidentInSB(data[di]);
 }
 
 function addWorknote() {
@@ -530,8 +532,8 @@ function addWorknote() {
   if (!data[di].worknotes) data[di].worknotes=[];
   data[di].worknotes.push({author,ts,text:txt,edited:false});
   document.getElementById('f-worknote').value='';
-  saveLocal();
   renderWorknotes(data[di].worknotes);
+  updateIncidentInSB(data[di]);
 }
 
 function handleWnKey(e) { if (e.key==='Enter'&&e.shiftKey){e.preventDefault();addWorknote();} }
@@ -585,66 +587,76 @@ function linkToSimilar(id) {
   document.getElementById('similar-panel').style.display='none';
 }
 
-// ── Storage ───────────────────────────────────────────
-const STORAGE_KEY = 'iDatabase_v2';
-const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxyT8zRbHVcSw9oFrARGO1hE-zpGXReCadJDXKeW6Sz0i0_b1Xy9hjwoKgxsaFRQQoSKw/exec';
+// ── Supabase Config ───────────────────────────────────
+const SB_URL = 'https://hjvwmlzvbehitumvrbrx.supabase.co';
+const SB_KEY = 'sb_publishable_4TozzH5Vrpk-fbi8SUoK-w_3XcDGOK_';
+const SB_HEADERS = {
+  'Content-Type': 'application/json',
+  'apikey': SB_KEY,
+  'Authorization': 'Bearer ' + SB_KEY,
+  'Prefer': 'return=minimal'
+};
 
-function saveLocal() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
-}
-
-function loadLocal() {
+async function loadFromSupabase() {
   try {
-    localStorage.removeItem('iDatabase_v1');
-    localStorage.removeItem('iDatabase_incidents');
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (parsed && parsed.length > 0) { data = parsed; return true; }
+    showGhToast('⏳ Loading incidents…', 'var(--muted)');
+    const res = await fetch(SB_URL + '/rest/v1/incidents?select=*&order=id.desc', {
+      headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
+    });
+    const rows = await res.json();
+    if (rows && rows.length) {
+      data = rows.map(r => ({
+        ...r,
+        worknotes: typeof r.worknotes === 'string' ? JSON.parse(r.worknotes || '[]') : (r.worknotes || [])
+      }));
+      showGhToast('✓ Loaded ' + data.length + ' incidents', 'var(--medium)');
+    } else {
+      // Empty DB — seed with default data
+      showGhToast('⏳ Seeding database…', 'var(--muted)');
+      await seedSupabase();
+      showGhToast('✓ Database seeded with ' + data.length + ' incidents', 'var(--medium)');
     }
-  } catch(e) {}
-  return false;
+  } catch(e) {
+    showGhToast('⚠ Could not reach database', 'var(--critical)');
+  }
+  filtered = [...data];
+  applyFilter();
 }
 
-// Read from sheet using JSONP (bypasses CORS)
-function syncFromSheet() {
-  return new Promise((resolve) => {
-    const cbName = 'cb_' + Date.now();
-    window[cbName] = function(rows) {
-      try {
-        if (rows && rows.length) {
-          data = rows.map(r => ({
-            ...r,
-            worknotes: typeof r.worknotes === 'string' ? JSON.parse(r.worknotes || '[]') : (r.worknotes || [])
-          }));
-          saveLocal();
-          filtered = [...data];
-          applyFilter();
-          showGhToast('✓ Synced ' + data.length + ' incidents', 'var(--medium)');
-        }
-      } catch(e) {}
-      delete window[cbName];
-      document.getElementById('jsonp-script') && document.getElementById('jsonp-script').remove();
-      resolve();
-    };
-    const s = document.createElement('script');
-    s.id = 'jsonp-script';
-    s.src = SHEET_URL + '?callback=' + cbName + '&t=' + Date.now();
-    s.onerror = () => { delete window[cbName]; resolve(); };
-    document.head.appendChild(s);
+async function seedSupabase() {
+  // Insert all hardcoded incidents
+  const rows = data.map(r => ({ ...r, worknotes: JSON.stringify(r.worknotes || []) }));
+  await fetch(SB_URL + '/rest/v1/incidents', {
+    method: 'POST',
+    headers: { ...SB_HEADERS, 'Prefer': 'return=minimal' },
+    body: JSON.stringify(rows)
   });
 }
 
-// Write to sheet via no-cors POST (fire and forget)
-async function saveToSheet() {
-  try {
-    await fetch(SHEET_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'save_all', incidents: data })
-    });
-  } catch(e) { console.warn('Sheet save failed:', e.message); }
+async function saveIncidentToSB(inc) {
+  // Upsert single incident
+  const row = { ...inc, worknotes: JSON.stringify(inc.worknotes || []) };
+  await fetch(SB_URL + '/rest/v1/incidents', {
+    method: 'POST',
+    headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify(row)
+  });
+}
+
+async function deleteIncidentFromSB(id) {
+  await fetch(SB_URL + '/rest/v1/incidents?id=eq.' + encodeURIComponent(id), {
+    method: 'DELETE',
+    headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
+  });
+}
+
+async function updateIncidentInSB(inc) {
+  const row = { ...inc, worknotes: JSON.stringify(inc.worknotes || []) };
+  await fetch(SB_URL + '/rest/v1/incidents?id=eq.' + encodeURIComponent(inc.id), {
+    method: 'PATCH',
+    headers: SB_HEADERS,
+    body: JSON.stringify(row)
+  });
 }
 
 function showGhToast(msg, color) {
@@ -680,9 +692,9 @@ function showMatchToast(newId, matches) {
 
 async function pushAllToSheet() {
   const btn = document.getElementById('push-btn');
-  btn.textContent = '⏳ Pushing…';
+  btn.textContent = '⏳ Seeding…';
   btn.disabled = true;
-  saveLocal();
+  await seedSupabase();
   btn.textContent = '✅ Done!';
   setTimeout(() => { btn.textContent = '⬆ Push to Sheet'; btn.disabled = false; }, 3000);
 }
@@ -697,12 +709,7 @@ function exportCSV() {
 
 // ── Init ──────────────────────────────────────────────
 document.getElementById('modal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
-// Always show data instantly from localStorage
-if (!loadLocal()) saveLocal();
-filtered = [...data];
-applyFilter();
-// Then sync from sheet in background to pick up others' changes
-syncFromSheet();
+loadFromSupabase();
 </script>
 </body>
 </html>
