@@ -600,7 +600,7 @@ const SB_HEADERS = {
 async function loadFromSupabase() {
   try {
     showGhToast('⏳ Loading incidents…', 'var(--muted)');
-    const res = await fetch(SB_URL + '/rest/v1/incidents?select=*&order=id.desc', {
+    const res = await fetch(SB_URL + '/rest/v1/incidents?select=*&order=date.desc&limit=1000', {
       headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
     });
     const rows = await res.json();
@@ -611,7 +611,6 @@ async function loadFromSupabase() {
       }));
       showGhToast('✓ Loaded ' + data.length + ' incidents', 'var(--medium)');
     } else {
-      // Empty DB — seed with default data
       showGhToast('⏳ Seeding database…', 'var(--muted)');
       await seedSupabase();
       showGhToast('✓ Database seeded with ' + data.length + ' incidents', 'var(--medium)');
@@ -624,13 +623,25 @@ async function loadFromSupabase() {
 }
 
 async function seedSupabase() {
-  // Insert all hardcoded incidents
-  const rows = data.map(r => ({ ...r, worknotes: JSON.stringify(r.worknotes || []) }));
-  await fetch(SB_URL + '/rest/v1/incidents', {
-    method: 'POST',
-    headers: { ...SB_HEADERS, 'Prefer': 'return=minimal' },
-    body: JSON.stringify(rows)
+  // Delete all first to avoid duplicates
+  await fetch(SB_URL + '/rest/v1/incidents?id=neq.NONE', {
+    method: 'DELETE',
+    headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
   });
+  // Insert in batches of 10
+  const rows = data.map(r => ({ ...r, worknotes: JSON.stringify(r.worknotes || []) }));
+  for (let i = 0; i < rows.length; i += 10) {
+    const batch = rows.slice(i, i + 10);
+    const res = await fetch(SB_URL + '/rest/v1/incidents', {
+      method: 'POST',
+      headers: { ...SB_HEADERS, 'Prefer': 'return=minimal' },
+      body: JSON.stringify(batch)
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      console.warn('Batch insert error:', err);
+    }
+  }
 }
 
 async function saveIncidentToSB(inc) {
