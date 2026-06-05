@@ -438,10 +438,13 @@ function saveIncident() {
   const newInc = { id, title, category, priority, status, assignee, client, module: module_, date: today, desc, worknotes: [] };
 
   // auto-match
-  const words = title.toLowerCase().split(/\s+/).filter(w=>w.length>=3);
+  const words = title.toLowerCase().split(/\s+/).filter(w=>w.length>=2);
   const matches = data.filter(r => {
+    if (r.id === id) return false;
     const sameCat = r.category === category;
-    const wordHit = words.some(w => r.title.toLowerCase().includes(w) || (r.desc||'').toLowerCase().includes(w));
+    const rt = r.title.toLowerCase();
+    const matchCount = words.filter(w => rt.includes(w)).length;
+    const wordHit = matchCount >= 2 || words.some(w => w.length >= 5 && rt.includes(w));
     return sameCat || wordHit;
   }).slice(0,8);
 
@@ -554,18 +557,26 @@ function triggerSimilar() {
     const category = document.getElementById('f-category').value;
     const panel = document.getElementById('similar-panel');
     const list  = document.getElementById('similar-list');
-    if (title.length<4){panel.style.display='none';return;}
-    const words = title.split(/\s+/).filter(w=>w.length>=3);
+    if (title.length<3){panel.style.display='none';return;}
+
+    // tokenise — include 2+ char words for better matching
+    const words = title.split(/\s+/).filter(w=>w.length>=2);
+
     const matches = data.filter(r=>{
-      const sameCat = r.category===category;
-      const wordHit = words.some(w=>r.title.toLowerCase().includes(w));
-      return sameCat||wordHit;
-    }).slice(0,6);
+      const sameCat = r.category === category;
+      const rt = r.title.toLowerCase();
+      // count how many words match
+      const matchCount = words.filter(w => rt.includes(w)).length;
+      // match if same category OR 2+ words match OR any significant word matches
+      const wordHit = matchCount >= 2 || words.some(w => w.length >= 5 && rt.includes(w));
+      return sameCat || wordHit;
+    }).slice(0,8);
+
     if (!matches.length){panel.style.display='none';return;}
     const pc={Critical:'var(--critical)',High:'var(--high)',Medium:'var(--medium)',Low:'var(--low)'};
     const sc={Open:'var(--accent)','In Progress':'var(--high)',Resolved:'var(--medium)',Closed:'var(--low)'};
     list.innerHTML=matches.map(r=>{
-      const hl=r.title.replace(new RegExp('('+words.join('|')+')','gi'),'<mark style="background:rgba(227,179,65,.3);color:var(--high);border-radius:2px;">$1</mark>');
+      const hl=r.title.replace(new RegExp('('+words.filter(w=>w.length>=2).join('|')+')','gi'),'<mark style="background:rgba(227,179,65,.3);color:var(--high);border-radius:2px;">$1</mark>');
       return `<div class="similar-item" onclick="linkToSimilar('${r.id}')">
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:3px;">
           <span style="font-family:monospace;font-size:.75rem;color:var(--muted);">${r.id}</span>
