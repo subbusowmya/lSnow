@@ -202,7 +202,7 @@
     <div class="form-row"><label>Client</label>
       <select id="f-client"><option>Domestic</option><option>International</option></select>
     </div>
-    <div class="form-row"><label>Affected Module</label><input id="f-module" /></div>
+    <div class="form-row"><label>Affected Module <span style="color:var(--critical);">*</span></label><input id="f-module" placeholder="e.g. EOD-CYCLE, SWIFT-MSG, NAV-CALC" required /></div>
     <div class="form-row"><label>Description</label><textarea id="f-desc"></textarea></div>
 
     <!-- Work Notes -->
@@ -335,7 +335,7 @@ function renderTable() {
   tbody.innerHTML = rows.map((r,i) => `
     <tr onclick="openEditModal(${start+i})">
       <td class="id-cell">${r.id}</td>
-      <td class="title-cell"><div class="title-main">${r.title}</div><span class="module-tag">${r.module}</span></td>
+      <td class="title-cell"><div class="title-main">${r.title}</div>${r.module ? '<span class="module-tag">'+r.module+'</span>' : ''}</td>
       <td>${r.category}</td>
       <td><span class="pri ${priClass(r.priority)}">${priSymbol(r.priority)} ${r.priority}</span></td>
       <td><span class="status ${statusClass(r.status)}">${r.status}</span></td>
@@ -422,6 +422,7 @@ function saveIncident() {
   const module_  = document.getElementById('f-module').value.trim();
   const desc     = document.getElementById('f-desc').value.trim();
   if (!title) return alert('Title is required.');
+  if (!module_) return alert('Affected Module is required.');
 
   if (editIdx !== null) {
     const r = filtered[editIdx];
