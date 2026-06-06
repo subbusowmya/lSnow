@@ -97,6 +97,81 @@
     .similar-item:last-child { border-bottom: none; }
     .similar-item:hover { background: var(--surface2); }
     @keyframes slideIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    /* ── AI Analysis Panel ─────────────────────────── */
+    .ai-panel {
+      display: none;
+      margin-top: 16px;
+      background: linear-gradient(135deg, #0d1117 0%, #1a1f2e 100%);
+      border: 1px solid #388bfd;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .ai-panel.open { display: block; }
+    .ai-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      background: rgba(56,139,253,.1);
+      border-bottom: 1px solid rgba(56,139,253,.2);
+    }
+    .ai-header .ai-icon { font-size: 1.2rem; }
+    .ai-header .ai-title { font-weight: 700; color: #79c0ff; font-size: .85rem; }
+    .ai-header .ai-badge {
+      margin-left: auto;
+      font-size: .65rem;
+      font-weight: 700;
+      background: rgba(56,139,253,.2);
+      color: #79c0ff;
+      padding: 2px 8px;
+      border-radius: 10px;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+    .ai-body { padding: 14px 16px; font-size: .83rem; line-height: 1.7; color: #e6edf3; }
+    .ai-body .ai-section { margin-bottom: 12px; }
+    .ai-body .ai-section-title {
+      font-size: .72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: #79c0ff;
+      margin-bottom: 4px;
+    }
+    .ai-body .ai-section-content { color: #c9d1d9; }
+    .ai-thinking {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px;
+      color: #79c0ff;
+      font-size: .83rem;
+    }
+    .ai-thinking .dots span {
+      animation: blink 1.4s infinite;
+      font-size: 1.4rem;
+      line-height: 1;
+    }
+    .ai-thinking .dots span:nth-child(2) { animation-delay: .2s; }
+    .ai-thinking .dots span:nth-child(3) { animation-delay: .4s; }
+    @keyframes blink { 0%, 80%, 100% { opacity: 0; } 40% { opacity: 1; } }
+    .btn-ai {
+      background: linear-gradient(135deg, #1a3a6b, #2E5FAB);
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: .82rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: opacity .15s;
+    }
+    .btn-ai:hover { opacity: .85; }
+    .btn-ai:disabled { opacity: .5; cursor: not-allowed; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
@@ -218,8 +293,24 @@
       </div>
     </div>
 
+    <!-- AI Analysis Panel -->
+    <div class="ai-panel" id="ai-panel">
+      <div class="ai-header">
+        <span class="ai-icon">🤖</span>
+        <span class="ai-title">Claude AI Analysis</span>
+        <span class="ai-badge">Powered by Anthropic</span>
+      </div>
+      <div class="ai-body" id="ai-body">
+        <div class="ai-thinking">
+          <span>Analysing incident</span>
+          <div class="dots"><span>.</span><span>.</span><span>.</span></div>
+        </div>
+      </div>
+    </div>
+
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn-ai" id="ai-btn" onclick="analyseWithAI()">🤖 Analyse with AI</button>
       <button class="btn btn-primary" onclick="saveIncident()">Save Incident</button>
     </div>
   </div>
@@ -229,61 +320,61 @@
 // ── Data ──────────────────────────────────────────────
 let data = [
 
-  { id:'INC-051', title:'EOD cycle fails to complete for funds with holiday calendar', module:'EOD-CYCLE', category:'Cycle Error', priority:'Critical', status:'Open', assignee:'Priya Suresh', date:'2025-06-05', client:'International', desc:'EOD cycle aborts mid-run for funds configured with Malaysia public holiday calendar. Cycle exits without posting NAV.', worknotes:[{"author": "System", "ts": "05 Jun 2025, 10:30", "text": "AUTO-MATCH: Similar existing incidents:\n  \u2022 INC-045: EOD cycle timing out on large fund universe\n  \u2022 INC-049: Intraday cycle double-counts pending orders\n  \u2022 INC-037: Cycle audit log not written on partial run", "edited": false}] },
-  { id:'INC-052', title:'Bank SWIFT code missing from outbound MT202 messages', module:'SWIFT-MSG', category:'Bank Name Missing', priority:'High', status:'Open', assignee:'Siti Nordin', date:'2025-06-05', client:'International', desc:'Outbound MT202 interbank transfer messages have empty field 57A SWIFT BIC for correspondent banks added after March 2025.', worknotes:[{"author": "System", "ts": "05 Jun 2025, 10:30", "text": "AUTO-MATCH: Similar existing incidents:\n  \u2022 INC-038: Bank identifier code blank in Swift messages\n  \u2022 INC-026: Intermediary bank SWIFT code not displayed\n  \u2022 INC-050: Bank name field missing from CRS XML export", "edited": false}] },
-  { id:'INC-053', title:'Custodian bank missing for newly onboarded Islamic fund', module:'FUND-MGMT', category:'Bank Setup Missing', priority:'Critical', status:'Open', assignee:'Ahmad Zulkifli', date:'2025-06-05', client:'Domestic', desc:'New Islamic fund IF-2025-007 launched without custodian bank linked. Subscription proceeds cannot be settled. Fund onboarding template missing bank setup step.', worknotes:[{"author": "System", "ts": "05 Jun 2025, 10:30", "text": "AUTO-MATCH: Similar existing incidents:\n  \u2022 INC-013: Custodian bank not configured for new share class\n  \u2022 INC-047: Custodian sub-account bank setup missing\n  \u2022 INC-039: EPF bank details not configured", "edited": false}] },
-  { id:'INC-054', title:'Report scheduler sends duplicate email notifications', module:'RPT-SCHEDULER', category:'Report Failure', priority:'Medium', status:'Open', assignee:'Lee Wei Ming', date:'2025-06-05', client:'Domestic', desc:'Daily fund performance report is emailed twice to distribution list. Scheduler has two active triggers pointing to the same report job after a config migration.', worknotes:[] },
-  { id:'INC-055', title:'User session expires silently without warning', module:'AUTH-SESSION', category:'Authentication', priority:'Medium', status:'Open', assignee:'Raj Patel', date:'2025-06-05', client:'Domestic', desc:'User sessions expire after 30 minutes of inactivity with no warning toast or redirect to login. Users lose unsaved form data. Session timeout warning at 5 minutes should trigger.', worknotes:[] },
-  { id:'INC-050', title:'Bank name field missing from CRS XML export',    module:'CRS-EXPORT',      category:'Bank Name Missing',  priority:'High',     status:'In Progress', assignee:'Priya Suresh',   date:'2025-03-10', client:'International', desc:'', worknotes:[{"author": "System", "ts": "05 Jun 2025, 10:30", "text": "AUTO-MATCH: New incident INC-052 (Bank SWIFT code missing from outbound MT202 messages) may be related.", "edited": false}] },
-  { id:'INC-049', title:'Intraday cycle double-counts pending orders',    module:'INTRADAY-CYCLE',  category:'Cycle Error',        priority:'High',     status:'Open',        assignee:'Ahmad Zulkifli', date:'2025-03-09', client:'Domestic',      desc:'', worknotes:[{"author": "System", "ts": "05 Jun 2025, 10:30", "text": "AUTO-MATCH: New incident INC-051 (EOD cycle fails to complete for funds with holiday calendar) may be related.", "edited": false}] },
-  { id:'INC-048', title:'Nav scroll position resets on page refresh',     module:'STATE-MGR',       category:'Nav Error',          priority:'Low',      status:'Open',        assignee:'Siti Nordin',    date:'2025-03-08', client:'Domestic',      desc:'', worknotes:[] },
-  { id:'INC-047', title:'Custodian sub-account bank setup missing',       module:'CUSTODIAN',       category:'Bank Setup Missing', priority:'Medium',   status:'In Progress', assignee:'Raj Patel',      date:'2025-03-07', client:'International', desc:'', worknotes:[{"author": "System", "ts": "05 Jun 2025, 10:30", "text": "AUTO-MATCH: New incident INC-053 (Custodian bank missing for newly onboarded Islamic fund) may be related.", "edited": false}] },
-  { id:'INC-046', title:'Bank name not displayed in transaction history',  module:'TXN-HISTORY',    category:'Bank Name Missing',  priority:'Low',      status:'Closed',      assignee:'Lee Wei Ming',   date:'2025-03-06', client:'Domestic',      desc:'', worknotes:[] },
-  { id:'INC-045', title:'EOD cycle timing out on large fund universe',    module:'EOD-CYCLE',       category:'Cycle Error',        priority:'Critical', status:'Open',        assignee:'Priya Suresh',   date:'2025-03-05', client:'International', desc:'', worknotes:[{"author": "System", "ts": "05 Jun 2025, 10:30", "text": "AUTO-MATCH: New incident INC-051 (EOD cycle fails to complete for funds with holiday calendar) may be related.", "edited": false}] },
-  { id:'INC-044', title:'Context menu nav disappears on hover',           module:'CONTEXT-MENU',    category:'Nav Error',          priority:'Medium',   status:'Resolved',    assignee:'Ahmad Zulkifli', date:'2025-03-04', client:'Domestic',      desc:'', worknotes:[] },
-  { id:'INC-043', title:'Agent bank not set up for distribution fund',    module:'DIST-FUND',       category:'Bank Setup Missing', priority:'High',     status:'Open',        assignee:'Siti Nordin',    date:'2025-03-03', client:'Domestic',      desc:'', worknotes:[] },
-  { id:'INC-042', title:'Beneficiary bank name missing in ACH file',      module:'ACH-GEN',         category:'Bank Name Missing',  priority:'Medium',   status:'Open',        assignee:'Raj Patel',      date:'2025-03-02', client:'Domestic',      desc:'', worknotes:[] },
-  { id:'INC-041', title:'Settlement cycle fails for T+3 bond trades',     module:'SETTLE-CYCLE',    category:'Cycle Error',        priority:'High',     status:'In Progress', assignee:'Lee Wei Ming',   date:'2025-03-01', client:'International', desc:'', worknotes:[] },
-  { id:'INC-040', title:'Deep-link nav URL returns 404 after login',      module:'AUTH-REDIRECT',   category:'Nav Error',          priority:'High',     status:'Open',        assignee:'Priya Suresh',   date:'2025-02-27', client:'Domestic',      desc:'', worknotes:[] },
-  { id:'INC-039', title:'EPF bank details not configured',                module:'EPF-MODULE',      category:'Bank Setup Missing', priority:'High',     status:'Open',        assignee:'Ahmad Zulkifli', date:'2025-02-26', client:'Domestic',      desc:'', worknotes:[{"author": "System", "ts": "05 Jun 2025, 10:30", "text": "AUTO-MATCH: New incident INC-053 (Custodian bank missing for newly onboarded Islamic fund) may be related.", "edited": false}] },
-  { id:'INC-038', title:'Bank identifier code blank in Swift messages',   module:'SWIFT-MSG',       category:'Bank Name Missing',  priority:'Critical', status:'In Progress', assignee:'Siti Nordin',    date:'2025-02-25', client:'International', desc:'', worknotes:[{"author": "System", "ts": "05 Jun 2025, 10:30", "text": "AUTO-MATCH: New incident INC-052 (Bank SWIFT code missing from outbound MT202 messages) may be related.", "edited": false}] },
-  { id:'INC-037', title:'Cycle audit log not written on partial run',     module:'CYCLE-AUDIT',     category:'Cycle Error',        priority:'Medium',   status:'Open',        assignee:'Raj Patel',      date:'2025-02-24', client:'Domestic',      desc:'', worknotes:[{"author": "System", "ts": "05 Jun 2025, 10:30", "text": "AUTO-MATCH: New incident INC-051 (EOD cycle fails to complete for funds with holiday calendar) may be related.", "edited": false}] },
-  { id:'INC-036', title:'Keyboard shortcut nav conflicts with browser',   module:'KEYBOARD-NAV',    category:'Nav Error',          priority:'Low',      status:'Closed',      assignee:'Lee Wei Ming',   date:'2025-02-22', client:'Domestic',      desc:'', worknotes:[] },
-  { id:'INC-035', title:'Dividend reinvestment cycle skips zero units',   module:'DIV-CYCLE',       category:'Cycle Error',        priority:'Critical', status:'Open',        assignee:'Priya Suresh',   date:'2025-02-20', client:'International', desc:'', worknotes:[] },
-  { id:'INC-034', title:'Remittance bank name blank in PDF statement',    module:'PDF-STMT',        category:'Bank Name Missing',  priority:'Medium',   status:'Resolved',    assignee:'Ahmad Zulkifli', date:'2025-02-18', client:'International', desc:'', worknotes:[] },
-  { id:'INC-033', title:'Correspondent bank missing in wire transfer',    module:'WIRE-TFR',        category:'Bank Setup Missing', priority:'High',     status:'Open',        assignee:'Siti Nordin',    date:'2025-02-16', client:'International', desc:'', worknotes:[] },
-  { id:'INC-032', title:'Breadcrumb nav truncates on mobile viewport',    module:'BREADCRUMB',      category:'Nav Error',          priority:'Low',      status:'Closed',      assignee:'Raj Patel',      date:'2025-02-14', client:'Domestic',      desc:'', worknotes:[] },
-  { id:'INC-031', title:'Corporate action cycle misses ex-date filter',   module:'CORP-ACTION',     category:'Cycle Error',        priority:'Critical', status:'In Progress', assignee:'Lee Wei Ming',   date:'2025-02-12', client:'International', desc:'', worknotes:[] },
-  { id:'INC-030', title:'Nominee bank details absent from custody report',module:'CUSTODY-RPT',     category:'Bank Name Missing',  priority:'High',     status:'Open',        assignee:'Priya Suresh',   date:'2025-02-10', client:'International', desc:'', worknotes:[] },
-  { id:'INC-029', title:'Paying agent bank not linked to fund class',     module:'FUND-CLASS',      category:'Bank Setup Missing', priority:'Medium',   status:'Resolved',    assignee:'Ahmad Zulkifli', date:'2025-02-08', client:'Domestic',      desc:'', worknotes:[] },
-  { id:'INC-028', title:'Side nav collapses unexpectedly on scroll',      module:'SIDE-NAV',        category:'Nav Error',          priority:'Medium',   status:'Open',        assignee:'Siti Nordin',    date:'2025-02-06', client:'Domestic',      desc:'', worknotes:[] },
-  { id:'INC-027', title:'Redemption cycle ignores cut-off time zone',     module:'REDEEM-CYCLE',    category:'Cycle Error',        priority:'Critical', status:'Open',        assignee:'Raj Patel',      date:'2025-02-04', client:'International', desc:'', worknotes:[] },
-  { id:'INC-026', title:'Intermediary bank SWIFT code not displayed',     module:'INTERMED-BANK',   category:'Bank Name Missing',  priority:'High',     status:'In Progress', assignee:'Lee Wei Ming',   date:'2025-02-02', client:'International', desc:'', worknotes:[{"author": "System", "ts": "05 Jun 2025, 10:30", "text": "AUTO-MATCH: New incident INC-052 (Bank SWIFT code missing from outbound MT202 messages) may be related.", "edited": false}] },
-  { id:'INC-025', title:'Trust bank account setup incomplete for SRS',    module:'SRS-MODULE',      category:'Bank Setup Missing', priority:'High',     status:'Open',        assignee:'Priya Suresh',   date:'2025-01-31', client:'Domestic',      desc:'', worknotes:[] },
-  { id:'INC-024', title:'Tab nav loses focus on keyboard navigation',     module:'TAB-NAV',         category:'Nav Error',          priority:'Low',      status:'Closed',      assignee:'Ahmad Zulkifli', date:'2025-01-29', client:'Domestic',      desc:'', worknotes:[] },
-  { id:'INC-023', title:'Switch cycle fails when market is closed',       module:'SWITCH-CYCLE',    category:'Cycle Error',        priority:'Critical', status:'Open',        assignee:'Siti Nordin',    date:'2025-01-27', client:'International', desc:'', worknotes:[] },
-  { id:'INC-022', title:'Clearing bank name missing in FIX message',      module:'FIX-MSG',         category:'Bank Name Missing',  priority:'Medium',   status:'Resolved',    assignee:'Raj Patel',      date:'2025-01-25', client:'International', desc:'', worknotes:[] },
-  { id:'INC-021', title:'CPFIS bank account not mapped to member',        module:'CPFIS-MAP',       category:'Bank Setup Missing', priority:'High',     status:'In Progress', assignee:'Lee Wei Ming',   date:'2025-01-23', client:'Domestic',      desc:'', worknotes:[] },
-  { id:'INC-020', title:'Hamburger nav not accessible via screen reader', module:'HAMBURGER-NAV',   category:'Nav Error',          priority:'Medium',   status:'Open',        assignee:'Priya Suresh',   date:'2025-01-21', client:'Domestic',      desc:'', worknotes:[] },
-  { id:'INC-019', title:'Rebalancing cycle produces negative holdings',   module:'REBAL-CYCLE',     category:'Cycle Error',        priority:'Critical', status:'Open',        assignee:'Ahmad Zulkifli', date:'2025-01-19', client:'International', desc:'', worknotes:[] },
-  { id:'INC-018', title:'Payee bank name wrong in eDDA mandate',          module:'EDDA-MANDATE',    category:'Bank Name Missing',  priority:'High',     status:'Open',        assignee:'Siti Nordin',    date:'2025-01-17', client:'Domestic',      desc:'', worknotes:[] },
-  { id:'INC-017', title:'Cash management bank not set for umbrella fund', module:'UMBRELLA-FUND',   category:'Bank Setup Missing', priority:'Medium',   status:'Closed',      assignee:'Raj Patel',      date:'2025-01-15', client:'International', desc:'', worknotes:[] },
-  { id:'INC-016', title:'Back-nav button skips two pages on mobile',      module:'MOBILE-NAV',      category:'Nav Error',          priority:'High',     status:'In Progress', assignee:'Lee Wei Ming',   date:'2025-01-13', client:'Domestic',      desc:'', worknotes:[] },
-  { id:'INC-015', title:'Daily NAV cycle not triggered on public holiday', module:'NAV-CYCLE',      category:'Cycle Error',        priority:'High',     status:'Open',        assignee:'Priya Suresh',   date:'2025-01-11', client:'Domestic',      desc:'', worknotes:[] },
-  { id:'INC-014', title:'Agent bank name absent from allotment notice',   module:'ALLOT-NOTICE',    category:'Bank Name Missing',  priority:'Low',      status:'Resolved',    assignee:'Ahmad Zulkifli', date:'2025-01-09', client:'Domestic',      desc:'', worknotes:[] },
-  { id:'INC-013', title:'Custodian bank not configured for new share class',module:'SHARE-CLASS',   category:'Bank Setup Missing', priority:'Critical', status:'Open',        assignee:'Siti Nordin',    date:'2025-01-07', client:'International', desc:'', worknotes:[{"author": "System", "ts": "05 Jun 2025, 10:30", "text": "AUTO-MATCH: New incident INC-053 (Custodian bank missing for newly onboarded Islamic fund) may be related.", "edited": false}] },
-  { id:'INC-012', title:'Floating action nav covers table rows',          module:'FAB-NAV',         category:'Nav Error',          priority:'Medium',   status:'Open',        assignee:'Raj Patel',      date:'2025-01-05', client:'Domestic',      desc:'', worknotes:[] },
-  { id:'INC-011', title:'Fee cycle applies wrong basis points tier',      module:'FEE-CYCLE',       category:'Cycle Error',        priority:'High',     status:'In Progress', assignee:'Lee Wei Ming',   date:'2025-01-03', client:'International', desc:'', worknotes:[] },
-  { id:'INC-010', title:'Receiving bank name truncated in GIRO file',     module:'GIRO-FILE',       category:'Bank Name Missing',  priority:'Medium',   status:'Open',        assignee:'Priya Suresh',   date:'2025-01-01', client:'Domestic',      desc:'', worknotes:[] },
-  { id:'INC-009', title:'Brokerage settlement bank unconfigured',         module:'BROKER-SETTL',    category:'Bank Setup Missing', priority:'High',     status:'Open',        assignee:'Ahmad Zulkifli', date:'2024-12-30', client:'International', desc:'', worknotes:[] },
-  { id:'INC-008', title:'Wizard nav state lost on browser back',          module:'WIZARD-NAV',      category:'Nav Error',          priority:'Low',      status:'Closed',      assignee:'Siti Nordin',    date:'2024-12-28', client:'Domestic',      desc:'', worknotes:[] },
-  { id:'INC-007', title:'Distribution cycle sends duplicate payments',    module:'DIST-CYCLE',      category:'Cycle Error',        priority:'Critical', status:'Open',        assignee:'Raj Patel',      date:'2024-12-26', client:'Domestic',      desc:'', worknotes:[] },
-  { id:'INC-006', title:'Sponsor bank name missing from KYC document',    module:'KYC-DOC',         category:'Bank Name Missing',  priority:'High',     status:'In Progress', assignee:'Lee Wei Ming',   date:'2024-12-24', client:'International', desc:'', worknotes:[] },
-  { id:'INC-005', title:'Omnibus bank account not set up in registry',    module:'OMNIBUS-REG',     category:'Bank Setup Missing', priority:'Medium',   status:'Resolved',    assignee:'Priya Suresh',   date:'2024-12-22', client:'Domestic',      desc:'', worknotes:[] },
-  { id:'INC-004', title:'Pagination nav loses filter context',            module:'PAGINATION',      category:'Nav Error',          priority:'Low',      status:'Closed',      assignee:'Ahmad Zulkifli', date:'2024-12-20', client:'Domestic',      desc:'', worknotes:[] },
-  { id:'INC-003', title:'Subscription cycle drops midnight transactions', module:'SUB-CYCLE',       category:'Cycle Error',        priority:'Critical', status:'Open',        assignee:'Siti Nordin',    date:'2024-12-18', client:'Domestic',      desc:'', worknotes:[] },
-  { id:'INC-002', title:'Originating bank name blank in RTGS message',   module:'RTGS-MSG',         category:'Bank Name Missing',  priority:'High',     status:'Open',        assignee:'Raj Patel',      date:'2024-12-16', client:'International', desc:'', worknotes:[] },
-  { id:'INC-001', title:'Collection bank not linked to unit trust fund',  module:'UT-FUND',         category:'Bank Setup Missing', priority:'Medium',   status:'In Progress', assignee:'Lee Wei Ming',   date:'2024-12-14', client:'Domestic',      desc:'', worknotes:[] },
+  { id:'INC-051', title:'EOD cycle fails to complete for funds with holiday calendar', module:'EOD-CYCLE', category:'Cycle Error', priority:'Critical', status:'Open', assignee:'Priya Suresh', date:'2025-06-05', client:'International', desc:'EOD cycle aborts mid-run for funds configured with Malaysia public holiday calendar. Cycle exits without posting NAV.', worknotes:[{"author": "System", "ts": "05 Jun 2025, 09:00", "text": "AUTO-MATCH: Similar existing incidents:\n  INC-045: EOD cycle timing out on large fund universe\n  INC-049: Intraday cycle double-counts pending orders\n  INC-037: Cycle audit log not written on partial run", "edited": false}, {"author": "Priya Suresh", "ts": "05 Jun 2025, 10:45", "text": "EOD-CYCLE aborting for funds with MY_HOLIDAY_CALENDAR_2025. Funds using 2024 calendar completing fine. 2025 calendar data suspected.", "edited": false}, {"author": "Priya Suresh", "ts": "05 Jun 2025, 14:00", "text": "Root Cause: 2025 holiday calendar has NULL entry for Wesak Day 12 May 2025. Cycle date calculation hits NULL and throws unhandled exception. Fix: patch NULL entry. Testing now.", "edited": false}] },
+  { id:'INC-052', title:'Bank SWIFT code missing from outbound MT202 messages', module:'SWIFT-MSG', category:'Bank Name Missing', priority:'High', status:'Open', assignee:'Siti Nordin', date:'2025-06-05', client:'International', desc:'Outbound MT202 interbank transfer messages have empty field 57A SWIFT BIC for correspondent banks added after March 2025.', worknotes:[{"author": "System", "ts": "05 Jun 2025, 09:00", "text": "AUTO-MATCH: Similar existing incidents:\n  INC-038: Bank identifier code blank in Swift messages\n  INC-026: Intermediary bank SWIFT code not displayed\n  INC-050: Bank name field missing from CRS XML export", "edited": false}, {"author": "Siti Nordin", "ts": "05 Jun 2025, 11:00", "text": "MT202 field 57A empty for 8 correspondent banks — all added to BANK_MASTER after 01 Mar 2025. Last SWIFT directory import was 28 Feb 2025.", "edited": false}, {"author": "Siti Nordin", "ts": "05 Jun 2025, 15:30", "text": "Root Cause: Same as INC-038 — SWIFT import lag. Escalating for emergency BIC import for 8 affected banks. Requesting SWIFT API integration for automated BIC lookup.", "edited": false}] },
+  { id:'INC-053', title:'Custodian bank missing for newly onboarded Islamic fund', module:'FUND-MGMT', category:'Bank Setup Missing', priority:'Critical', status:'Open', assignee:'Ahmad Zulkifli', date:'2025-06-05', client:'Domestic', desc:'New Islamic fund IF-2025-007 launched without custodian bank linked. Subscription proceeds cannot be settled. Fund onboarding template missing bank setup step.', worknotes:[{"author": "System", "ts": "05 Jun 2025, 09:00", "text": "AUTO-MATCH: Similar existing incidents:\n  INC-013: Custodian bank not configured for new share class\n  INC-047: Custodian sub-account bank setup missing\n  INC-039: EPF bank details not configured", "edited": false}, {"author": "Ahmad Zulkifli", "ts": "05 Jun 2025, 11:30", "text": "Fund IF-2025-007 via Islamic fund wizard. Wizard missing custodian bank step for Shariah-compliant funds — different code path from conventional funds.", "edited": false}, {"author": "Ahmad Zulkifli", "ts": "05 Jun 2025, 16:00", "text": "Root Cause: Islamic fund wizard introduced in v3.3 does not include bank setup step added to conventional wizard in v3.1. Gap in wizard coverage across fund types.", "edited": false}] },
+  { id:'INC-054', title:'Report scheduler sends duplicate email notifications', module:'RPT-SCHEDULER', category:'Report Failure', priority:'Medium', status:'Open', assignee:'Lee Wei Ming', date:'2025-06-05', client:'Domestic', desc:'Daily fund performance report is emailed twice to distribution list. Scheduler has two active triggers pointing to the same report job after a config migration.', worknotes:[{"author": "Lee Wei Ming", "ts": "05 Jun 2025, 12:00", "text": "RPT-SCHEDULER has two active triggers for RPT-FUND-PERF-DAILY - both fire at 07:00. Second trigger duplicated during config migration from old scheduler.", "edited": false}, {"author": "Lee Wei Ming", "ts": "05 Jun 2025, 15:00", "text": "Root Cause: Config migration script duplicated trigger without checking for existing entry. Fix: deactivated duplicate. Added uniqueness constraint on scheduler trigger table.", "edited": false}] },
+  { id:'INC-055', title:'User session expires silently without warning', module:'AUTH-SESSION', category:'Authentication', priority:'Medium', status:'Open', assignee:'Raj Patel', date:'2025-06-05', client:'Domestic', desc:'User sessions expire after 30 minutes of inactivity with no warning toast or redirect to login. Users lose unsaved form data. Session timeout warning at 5 minutes should trigger.', worknotes:[{"author": "Raj Patel", "ts": "05 Jun 2025, 13:00", "text": "AUTH-SESSION timeout 30 minutes with no warning before expiry. Users submitting long forms lose all data on session expiry.", "edited": false}, {"author": "Raj Patel", "ts": "05 Jun 2025, 16:30", "text": "Root Cause: Session timeout warning not implemented. Fix: JS timer triggers warning toast at 25 mins and countdown at 29 mins. Session extension option to be added.", "edited": false}] },
+  { id:'INC-050', title:'Bank name field missing from CRS XML export',    module:'CRS-EXPORT',      category:'Bank Name Missing',  priority:'High',     status:'In Progress', assignee:'Priya Suresh',   date:'2025-03-10', client:'International', desc:'', worknotes:[{"author": "Priya Suresh", "ts": "10 Mar 2025, 10:00", "text": "CRS-EXPORT missing FIName element for non-Malaysian institutions. OECD CRS schema v2.0 mandates FIName for all reportable accounts. Regulatory submission risk.", "edited": false}, {"author": "Priya Suresh", "ts": "11 Mar 2025, 15:00", "text": "Root Cause: CRS-EXPORT.p queries only domestic BANK_MASTER. Foreign institutions in FOREIGN_BANK_MASTER not included. Fix: added JOIN with COALESCE for both tables.", "edited": false}] },
+  { id:'INC-049', title:'Intraday cycle double-counts pending orders',    module:'INTRADAY-CYCLE',  category:'Cycle Error',        priority:'High',     status:'Open',        assignee:'Ahmad Zulkifli', date:'2025-03-09', client:'Domestic',      desc:'', worknotes:[{"author": "Ahmad Zulkifli", "ts": "09 Mar 2025, 09:00", "text": "INTRADAY-CYCLE counting PENDING_CONFIRM orders twice - once on creation and again on confirmation. Unit holdings inflated by ~0.3%.", "edited": false}, {"author": "Ahmad Zulkifli", "ts": "10 Mar 2025, 14:30", "text": "Root Cause: Status filter includes PENDING and PENDING_CONFIRM. Fix: exclude PENDING_CONFIRM from intraday - only count CONFIRMED orders.", "edited": false}] },
+  { id:'INC-048', title:'Nav scroll position resets on page refresh',     module:'STATE-MGR',       category:'Nav Error',          priority:'Low',      status:'Open',        assignee:'Siti Nordin',    date:'2025-03-08', client:'Domestic',      desc:'', worknotes:[{"author": "Siti Nordin", "ts": "08 Mar 2025, 10:00", "text": "STATE-MGR not storing nav sidebar scroll position before page unload. No scroll restoration on page load.", "edited": false}, {"author": "Siti Nordin", "ts": "09 Mar 2025, 11:30", "text": "Root Cause: Scroll persistence not implemented. Fix: beforeunload saves scrollTop to sessionStorage, restored on load. Deployed.", "edited": false}] },
+  { id:'INC-047', title:'Custodian sub-account bank setup missing',       module:'CUSTODIAN',       category:'Bank Setup Missing', priority:'Medium',   status:'In Progress', assignee:'Raj Patel',      date:'2025-03-07', client:'International', desc:'', worknotes:[{"author": "Raj Patel", "ts": "07 Mar 2025, 09:30", "text": "Custodian sub-account wizard exits after step 2. Step 3 not rendered - conditional check on account_type=FOREIGN_SEC fails for new FOREIGN_EQUITY type.", "edited": false}, {"author": "Raj Patel", "ts": "08 Mar 2025, 14:00", "text": "Root Cause: Step 3 conditional too restrictive - missing new account types added in v3.3. Fix: updated to include all foreign security types.", "edited": false}] },
+  { id:'INC-046', title:'Bank name not displayed in transaction history',  module:'TXN-HISTORY',    category:'Bank Name Missing',  priority:'Low',      status:'Closed',      assignee:'Lee Wei Ming',   date:'2025-03-06', client:'Domestic',      desc:'', worknotes:[{"author": "Lee Wei Ming", "ts": "06 Mar 2025, 10:00", "text": "TXN-HISTORY view has JOIN to BANK_DETAIL commented out - left from performance investigation Feb 2025. Bank name not showing.", "edited": false}, {"author": "Lee Wei Ming", "ts": "07 Mar 2025, 11:00", "text": "Root Cause: JOIN accidentally left commented out. Fix: restored JOIN - no performance impact. Bank names displaying correctly.", "edited": false}] },
+  { id:'INC-045', title:'EOD cycle timing out on large fund universe',    module:'EOD-CYCLE',       category:'Cycle Error',        priority:'Critical', status:'Open',        assignee:'Priya Suresh',   date:'2025-03-05', client:'International', desc:'', worknotes:[{"author": "Priya Suresh", "ts": "05 Mar 2025, 09:00", "text": "EOD-CYCLE doing full table scan on FUND table - no index on FUND_STATUS column. 500+ funds causing 4+ hour query timeout.", "edited": false}, {"author": "Priya Suresh", "ts": "06 Mar 2025, 15:00", "text": "Root Cause: Missing index on FUND_STATUS. Fix: CREATE INDEX idx_fund_status ON FUND(FUND_STATUS). Query time reduced from 4hrs to 12 mins.", "edited": false}] },
+  { id:'INC-044', title:'Context menu nav disappears on hover',           module:'CONTEXT-MENU',    category:'Nav Error',          priority:'Medium',   status:'Resolved',    assignee:'Ahmad Zulkifli', date:'2025-03-04', client:'Domestic',      desc:'', worknotes:[{"author": "Ahmad Zulkifli", "ts": "04 Mar 2025, 10:00", "text": "Context menu disappears - CSS gap between trigger and menu div is 0px. Mouse leaving trigger by 1px closes menu before item can be clicked.", "edited": false}, {"author": "Ahmad Zulkifli", "ts": "05 Mar 2025, 11:30", "text": "Root Cause: No CSS buffer zone between trigger and menu. Fix: added invisible padding bridge. Context menu stays open reliably. Deployed.", "edited": false}] },
+  { id:'INC-043', title:'Agent bank not set up for distribution fund',    module:'DIST-FUND',       category:'Bank Setup Missing', priority:'High',     status:'Open',        assignee:'Siti Nordin',    date:'2025-03-03', client:'Domestic',      desc:'', worknotes:[{"author": "Siti Nordin", "ts": "03 Mar 2025, 09:30", "text": "Fund DF-2025-012 cloned from template DF-TEMPLATE-01 with agent bank cleared. Clone inherits blank agent bank - no validation on activation.", "edited": false}, {"author": "Siti Nordin", "ts": "04 Mar 2025, 14:00", "text": "Root Cause: Clone does not validate mandatory bank fields. Fix: add bank completeness validation before fund activation. Manual fix for DF-2025-012 applied.", "edited": false}] },
+  { id:'INC-042', title:'Beneficiary bank name missing in ACH file',      module:'ACH-GEN',         category:'Bank Name Missing',  priority:'Medium',   status:'Open',        assignee:'Raj Patel',      date:'2025-03-02', client:'Domestic',      desc:'', worknotes:[{"author": "Raj Patel", "ts": "02 Mar 2025, 10:00", "text": "ACH-GEN sanitisation regex stripping ampersand from bank names. Names with & truncated - field appears blank after trim in some cases.", "edited": false}, {"author": "Raj Patel", "ts": "03 Mar 2025, 11:00", "text": "Root Cause: Regex too aggressive - strips valid characters. Fix: updated to only strip truly invalid ACH characters per NACHA spec. Ampersand allowed in field 8.", "edited": false}] },
+  { id:'INC-041', title:'Settlement cycle fails for T+3 bond trades',     module:'SETTLE-CYCLE',    category:'Cycle Error',        priority:'High',     status:'In Progress', assignee:'Lee Wei Ming',   date:'2025-03-01', client:'International', desc:'', worknotes:[{"author": "Lee Wei Ming", "ts": "01 Mar 2025, 09:00", "text": "SETTLE-CYCLE computing settlement as TRADE_DATE+3 calendar days. T+3 for bonds means 3 business days. Public holidays not excluded.", "edited": false}, {"author": "Lee Wei Ming", "ts": "02 Mar 2025, 14:30", "text": "Root Cause: Calendar day vs business day confusion. Fix: BIZDAY_ADD(trade_date,3,MY_HOLIDAY_CALENDAR). Tested with 8 bond settlement scenarios.", "edited": false}] },
+  { id:'INC-040', title:'Deep-link nav URL returns 404 after login',      module:'AUTH-REDIRECT',   category:'Nav Error',          priority:'High',     status:'Open',        assignee:'Priya Suresh',   date:'2025-02-27', client:'Domestic',      desc:'', worknotes:[{"author": "Priya Suresh", "ts": "27 Feb 2025, 10:00", "text": "AUTH-REDIRECT saves intended URL in sessionStorage before login. After login new session created - sessionStorage cleared before auth handler reads it.", "edited": false}, {"author": "Priya Suresh", "ts": "28 Feb 2025, 11:30", "text": "Root Cause: sessionStorage scoped to original session - cleared on new auth. Fix: store intended URL in short-lived server-side state with CSRF token. In development.", "edited": false}] },
+  { id:'INC-039', title:'EPF bank details not configured',                module:'EPF-MODULE',      category:'Bank Setup Missing', priority:'High',     status:'Open',        assignee:'Ahmad Zulkifli', date:'2025-02-26', client:'Domestic',      desc:'', worknotes:[{"author": "Ahmad Zulkifli", "ts": "26 Feb 2025, 09:30", "text": "EPF-MODULE employer registration missing EPF-BANK-SETUP flag. Flag added in v3.2 but registration flow not updated. All employers post-v3.2 affected.", "edited": false}, {"author": "Ahmad Zulkifli", "ts": "27 Feb 2025, 14:00", "text": "Root Cause: Version mismatch - new flag not added to registration workflow. Fix: added flag assignment. Remediated 47 affected accounts.", "edited": false}] },
+  { id:'INC-038', title:'Bank identifier code blank in Swift messages',   module:'SWIFT-MSG',       category:'Bank Name Missing',  priority:'Critical', status:'In Progress', assignee:'Siti Nordin',    date:'2025-02-25', client:'International', desc:'', worknotes:[{"author": "Siti Nordin", "ts": "25 Feb 2025, 10:00", "text": "SWIFT-MSG field 57A empty for 12 banks added after Jan 2025 SWIFT directory import. BIC lookup returns NULL for new entries.", "edited": false}, {"author": "Siti Nordin", "ts": "26 Feb 2025, 15:30", "text": "Root Cause: SWIFT directory import quarterly. Banks added between imports have no BIC in local directory. Fix: on-demand BIC lookup via SWIFT API for missing entries.", "edited": false}] },
+  { id:'INC-037', title:'Cycle audit log not written on partial run',     module:'CYCLE-AUDIT',     category:'Cycle Error',        priority:'Medium',   status:'Open',        assignee:'Raj Patel',      date:'2025-02-24', client:'Domestic',      desc:'', worknotes:[{"author": "Raj Patel", "ts": "24 Feb 2025, 09:15", "text": "CYCLE-AUDIT table not written on manual interrupt. Audit procedure only called on normal completion - not in exception handler.", "edited": false}, {"author": "Raj Patel", "ts": "25 Feb 2025, 14:00", "text": "Root Cause: Audit write only in success path. Fix: moved to FINALLY block so it always executes regardless of completion type.", "edited": false}] },
+  { id:'INC-036', title:'Keyboard shortcut nav conflicts with browser',   module:'KEYBOARD-NAV',    category:'Nav Error',          priority:'Low',      status:'Closed',      assignee:'Lee Wei Ming',   date:'2025-02-22', client:'Domestic',      desc:'', worknotes:[{"author": "Lee Wei Ming", "ts": "22 Feb 2025, 10:30", "text": "KEYBOARD-NAV Alt+Left conflicts with browser back. Using browser-reserved key combination for in-app navigation.", "edited": false}, {"author": "Lee Wei Ming", "ts": "23 Feb 2025, 11:00", "text": "Root Cause: Key binding chosen without checking browser reserved shortcuts. Fix: changed to Ctrl+[ back and Ctrl+] forward. Deployed.", "edited": false}] },
+  { id:'INC-035', title:'Dividend reinvestment cycle skips zero units',   module:'DIV-CYCLE',       category:'Cycle Error',        priority:'Critical', status:'Open',        assignee:'Priya Suresh',   date:'2025-02-20', client:'International', desc:'', worknotes:[{"author": "Priya Suresh", "ts": "20 Feb 2025, 09:00", "text": "DIV-CYCLE ex-date using DATEADD(record_date,-1,DAY) - subtracting 1 calendar day. Correct is 2 business days excluding weekends and public holidays.", "edited": false}, {"author": "Priya Suresh", "ts": "21 Feb 2025, 15:00", "text": "Root Cause: Incorrect business day logic. Fix: replaced with BIZDAY_SUBTRACT(record_date,2,MY_HOLIDAY_CALENDAR). Tested with 6 dividend events.", "edited": false}] },
+  { id:'INC-034', title:'Remittance bank name blank in PDF statement',    module:'PDF-STMT',        category:'Bank Name Missing',  priority:'Medium',   status:'Resolved',    assignee:'Ahmad Zulkifli', date:'2025-02-18', client:'International', desc:'', worknotes:[{"author": "Ahmad Zulkifli", "ts": "20 Feb 2025, 10:00", "text": "CONFIRM-GEN reading from BANK_MASTER_CACHE refreshed weekly. Mid-week bank name changes not reflected in trade confirmations.", "edited": false}, {"author": "Ahmad Zulkifli", "ts": "21 Feb 2025, 11:30", "text": "Root Cause: Cache refresh too infrequent. Fix: daily midnight refresh. Added manual refresh trigger for urgent bank name changes.", "edited": false}] },
+  { id:'INC-033', title:'Correspondent bank missing in wire transfer',    module:'WIRE-TFR',        category:'Bank Setup Missing', priority:'High',     status:'Open',        assignee:'Siti Nordin',    date:'2025-02-16', client:'International', desc:'', worknotes:[{"author": "Siti Nordin", "ts": "16 Feb 2025, 09:30", "text": "Wire transfer template missing ABA routing number field. Template created from non-US template - ROUTING_NO merge field never added.", "edited": false}, {"author": "Siti Nordin", "ts": "17 Feb 2025, 14:00", "text": "Root Cause: Template gap - ROUTING_NO not in merge fields. Fix: added field to wire instruction template. Tested with 5 US correspondent banks.", "edited": false}] },
+  { id:'INC-032', title:'Breadcrumb nav truncates on mobile viewport',    module:'BREADCRUMB',      category:'Nav Error',          priority:'Low',      status:'Closed',      assignee:'Raj Patel',      date:'2025-02-14', client:'Domestic',      desc:'', worknotes:[{"author": "Raj Patel", "ts": "14 Feb 2025, 10:00", "text": "Breadcrumb reads parent from PAGE_HIERARCHY using page_id. TRD-001 maps to Reports module - incorrect entry in hierarchy table.", "edited": false}, {"author": "Raj Patel", "ts": "15 Feb 2025, 11:30", "text": "Root Cause: PAGE_HIERARCHY wrong parent_module for TRD-001. Data fix: updated parent to Trading module. Resolved.", "edited": false}] },
+  { id:'INC-031', title:'Corporate action cycle misses ex-date filter',   module:'CORP-ACTION',     category:'Cycle Error',        priority:'Critical', status:'In Progress', assignee:'Lee Wei Ming',   date:'2025-02-12', client:'International', desc:'', worknotes:[{"author": "Lee Wei Ming", "ts": "12 Feb 2025, 09:15", "text": "CORP-ACTION skipping ex-date filter - processing all pending corporate actions regardless of date. Dividend postings going out early.", "edited": false}, {"author": "Lee Wei Ming", "ts": "13 Feb 2025, 14:30", "text": "Root Cause: Ex-date WHERE clause commented out during debugging - not restored before release. Fix: restored clause. Added code review checkpoint.", "edited": false}] },
+  { id:'INC-030', title:'Nominee bank details absent from custody report',module:'CUSTODY-RPT',     category:'Bank Name Missing',  priority:'High',     status:'Open',        assignee:'Priya Suresh',   date:'2025-02-10', client:'International', desc:'', worknotes:[{"author": "Priya Suresh", "ts": "10 Feb 2025, 10:00", "text": "CUSTODY-RPT pulling nominee bank from BANK_MASTER but nominee accounts linked to NOMINEE_BANK_REF - separate table. JOIN missing in query.", "edited": false}, {"author": "Priya Suresh", "ts": "11 Feb 2025, 15:00", "text": "Root Cause: Missing LEFT JOIN to NOMINEE_BANK_REF. Fix: added JOIN tested with 15 nominee accounts. Bank details now correct.", "edited": false}] },
+  { id:'INC-029', title:'Paying agent bank not linked to fund class',     module:'FUND-CLASS',      category:'Bank Setup Missing', priority:'Medium',   status:'Resolved',    assignee:'Ahmad Zulkifli', date:'2025-02-08', client:'Domestic',      desc:'', worknotes:[{"author": "Ahmad Zulkifli", "ts": "08 Feb 2025, 09:30", "text": "Paying agent bank for FC-BOND-07 missing. Cloned from FC-EQUITY-01 - clone copies fee structure but not paying agent bank link.", "edited": false}, {"author": "Ahmad Zulkifli", "ts": "09 Feb 2025, 14:00", "text": "Root Cause: Clone procedure does not copy paying agent bank. Fix: added paying agent bank to clone procedure. Resolved.", "edited": false}] },
+  { id:'INC-028', title:'Side nav collapses unexpectedly on scroll',      module:'SIDE-NAV',        category:'Nav Error',          priority:'Medium',   status:'Open',        assignee:'Siti Nordin',    date:'2025-02-06', client:'Domestic',      desc:'', worknotes:[{"author": "Siti Nordin", "ts": "06 Feb 2025, 10:00", "text": "Side nav collapse threshold set to 10px scroll - triggers on any minor mouse movement. Too aggressive.", "edited": false}, {"author": "Siti Nordin", "ts": "07 Feb 2025, 11:00", "text": "Root Cause: Scroll threshold too low. Fix: increased to 100px with debounce on scroll listener. Deployed.", "edited": false}] },
+  { id:'INC-027', title:'Redemption cycle ignores cut-off time zone',     module:'REDEEM-CYCLE',    category:'Cycle Error',        priority:'Critical', status:'Open',        assignee:'Raj Patel',      date:'2025-02-04', client:'International', desc:'', worknotes:[{"author": "Raj Patel", "ts": "04 Feb 2025, 09:00", "text": "REDEEM-CYCLE cut-off 17:00 interpreted as UTC not MYT. Orders after 17:00 MYT being included in cycle incorrectly.", "edited": false}, {"author": "Raj Patel", "ts": "05 Feb 2025, 14:30", "text": "Root Cause: Cut-off time stored without timezone context - defaults to UTC. Fix: store with explicit +08:00 offset. Patch applied to REDEEM-CYCLE.p.", "edited": false}] },
+  { id:'INC-026', title:'Intermediary bank SWIFT code not displayed',     module:'INTERMED-BANK',   category:'Bank Name Missing',  priority:'High',     status:'In Progress', assignee:'Lee Wei Ming',   date:'2025-02-02', client:'International', desc:'', worknotes:[{"author": "Lee Wei Ming", "ts": "02 Feb 2025, 10:00", "text": "INTERMED-BANK pulling SWIFT from BANK_BIC_PRIMARY. For inter-bank transfers BANK_BIC_INTERBANK should be used.", "edited": false}, {"author": "Lee Wei Ming", "ts": "03 Feb 2025, 11:30", "text": "Root Cause: Wrong BIC field referenced. Fix: updated INTERMED-BANK.p to use BANK_BIC_INTERBANK for wire transfer display. Deployed to UAT.", "edited": false}] },
+  { id:'INC-025', title:'Trust bank account setup incomplete for SRS',    module:'SRS-MODULE',      category:'Bank Setup Missing', priority:'High',     status:'Open',        assignee:'Priya Suresh',   date:'2025-01-31', client:'Domestic',      desc:'', worknotes:[{"author": "Priya Suresh", "ts": "31 Jan 2025, 09:30", "text": "SRS trust bank for fund SRS-2025-007 not configured. SRS-MODULE requires separate trust bank but setup wizard does not prompt for it.", "edited": false}, {"author": "Priya Suresh", "ts": "01 Feb 2025, 14:00", "text": "Root Cause: Wizard treats SRS trust bank same as custodian - separate requirement not captured. Fix: add explicit SRS trust bank step for SRS-eligible funds.", "edited": false}] },
+  { id:'INC-024', title:'Tab nav loses focus on keyboard navigation',     module:'TAB-NAV',         category:'Nav Error',          priority:'Low',      status:'Closed',      assignee:'Ahmad Zulkifli', date:'2025-01-29', client:'Domestic',      desc:'', worknotes:[{"author": "Ahmad Zulkifli", "ts": "29 Jan 2025, 10:00", "text": "Tab nav skips mandatory fields - tabindex=-1 applied globally to all required fields during UI refactor. Broke accessibility.", "edited": false}, {"author": "Ahmad Zulkifli", "ts": "30 Jan 2025, 11:30", "text": "Root Cause: tabindex=-1 incorrectly applied to required field class. Fix: removed from required fields. Set explicit positive tabindex values. Resolved.", "edited": false}] },
+  { id:'INC-023', title:'Switch cycle fails when market is closed',       module:'SWITCH-CYCLE',    category:'Cycle Error',        priority:'Critical', status:'Open',        assignee:'Siti Nordin',    date:'2025-01-27', client:'International', desc:'', worknotes:[{"author": "Siti Nordin", "ts": "27 Jan 2025, 09:15", "text": "SWITCH-CYCLE not checking market_open flag. On closure days cycle attempts switch orders and fails silently - no error logged.", "edited": false}, {"author": "Siti Nordin", "ts": "28 Jan 2025, 15:00", "text": "Root Cause: Market closure check removed during cycle refactor v3.0 - not restored. Fix: re-added check at cycle entry. Added explicit logging for closure scenario.", "edited": false}] },
+  { id:'INC-022', title:'Clearing bank name missing in FIX message',      module:'FIX-MSG',         category:'Bank Name Missing',  priority:'Medium',   status:'Resolved',    assignee:'Raj Patel',      date:'2025-01-25', client:'International', desc:'', worknotes:[{"author": "Raj Patel", "ts": "25 Jan 2025, 10:30", "text": "FIX message field 56 showing old bank name. Cache refreshes weekly - banks that changed names mid-week show stale data.", "edited": false}, {"author": "Raj Patel", "ts": "26 Jan 2025, 11:00", "text": "Root Cause: Cache TTL too long. Fix: reduce to daily midnight refresh. Added manual refresh trigger for urgent cases. Resolved.", "edited": false}] },
+  { id:'INC-021', title:'CPFIS bank account not mapped to member',        module:'CPFIS-MAP',       category:'Bank Setup Missing', priority:'High',     status:'In Progress', assignee:'Lee Wei Ming',   date:'2025-01-23', client:'Domestic',      desc:'', worknotes:[{"author": "Lee Wei Ming", "ts": "23 Jan 2025, 09:00", "text": "CPFIS member M-2025-112 missing bank mapping. Bulk import inserts member record but skips cpfis_bank_map table INSERT.", "edited": false}, {"author": "Lee Wei Ming", "ts": "24 Jan 2025, 14:00", "text": "Root Cause: Bulk import missing INSERT into cpfis_bank_map. Fix: added mapping insert to script. Remediated 23 affected accounts.", "edited": false}] },
+  { id:'INC-020', title:'Hamburger nav not accessible via screen reader', module:'HAMBURGER-NAV',   category:'Nav Error',          priority:'Medium',   status:'Open',        assignee:'Priya Suresh',   date:'2025-01-21', client:'Domestic',      desc:'', worknotes:[{"author": "Priya Suresh", "ts": "21 Jan 2025, 10:00", "text": "Hamburger touch listener on id=hamburger-desktop which does not exist in mobile DOM. Mobile uses id=hamburger-mobile. ID mismatch.", "edited": false}, {"author": "Priya Suresh", "ts": "22 Jan 2025, 11:30", "text": "Root Cause: ID mismatch between desktop and mobile DOM. Fix: use class selector instead of ID. Resolved and tested on Chrome mobile and Safari iOS.", "edited": false}] },
+  { id:'INC-019', title:'Rebalancing cycle produces negative holdings',   module:'REBAL-CYCLE',     category:'Cycle Error',        priority:'Critical', status:'Open',        assignee:'Ahmad Zulkifli', date:'2025-01-19', client:'International', desc:'', worknotes:[{"author": "Ahmad Zulkifli", "ts": "19 Jan 2025, 09:30", "text": "REBAL-CYCLE producing negative holdings for 3 funds. Sell orders doubled when rebalancing overlaps subscription cycle - no concurrency lock.", "edited": false}, {"author": "Ahmad Zulkifli", "ts": "20 Jan 2025, 15:00", "text": "Root Cause: Concurrent REBAL-CYCLE and SUB-CYCLE without transaction isolation. Fix: add cycle concurrency lock. Interim: schedule rebalancing 2 hours after subscription cycle.", "edited": false}] },
+  { id:'INC-018', title:'Payee bank name wrong in eDDA mandate',          module:'EDDA-MANDATE',    category:'Bank Name Missing',  priority:'High',     status:'Open',        assignee:'Siti Nordin',    date:'2025-01-17', client:'Domestic',      desc:'', worknotes:[{"author": "Siti Nordin", "ts": "17 Jan 2025, 10:00", "text": "eDDA mandate for C-2025-089 showing bank from previous mandate. EDDA-MANDATE.p not refreshing bank lookup on renewal - using cached record.", "edited": false}, {"author": "Siti Nordin", "ts": "18 Jan 2025, 14:30", "text": "Root Cause: Renewal reuses cached bank record without re-querying. Fix: force fresh bank lookup on each mandate generation. Testing in progress.", "edited": false}] },
+  { id:'INC-017', title:'Cash management bank not set for umbrella fund', module:'UMBRELLA-FUND',   category:'Bank Setup Missing', priority:'Medium',   status:'Closed',      assignee:'Raj Patel',      date:'2025-01-15', client:'International', desc:'', worknotes:[{"author": "Raj Patel", "ts": "15 Jan 2025, 09:00", "text": "Umbrella fund UMB-2025-001 cloned from template - bank cleared during sanitisation. Cash management bank field blank.", "edited": false}, {"author": "Raj Patel", "ts": "16 Jan 2025, 13:00", "text": "Root Cause: Fund cloning sanitises bank details without flagging mandatory fields incomplete. Fix: add bank completeness check on fund activation. Resolved.", "edited": false}] },
+  { id:'INC-016', title:'Back-nav button skips two pages on mobile',      module:'MOBILE-NAV',      category:'Nav Error',          priority:'High',     status:'In Progress', assignee:'Lee Wei Ming',   date:'2025-01-13', client:'Domestic',      desc:'', worknotes:[{"author": "Lee Wei Ming", "ts": "13 Jan 2025, 10:30", "text": "Mobile nav calling history.go(-2) instead of history.go(-1). Regression in mobile UI refactor v3.1.2.", "edited": false}, {"author": "Lee Wei Ming", "ts": "14 Jan 2025, 11:30", "text": "Root Cause: Hardcoded -2 step instead of -1. Fix: corrected and tested on iOS and Android. Deployed.", "edited": false}] },
+  { id:'INC-015', title:'Daily NAV cycle not triggered on public holiday', module:'NAV-CYCLE',      category:'Cycle Error',        priority:'High',     status:'Open',        assignee:'Priya Suresh',   date:'2025-01-11', client:'Domestic',      desc:'', worknotes:[{"author": "Priya Suresh", "ts": "11 Jan 2025, 09:15", "text": "NAV-CYCLE configured to skip public holidays using MY_HOLIDAY_CALENDAR. Calendar not updated for 2025 - missing Thaipusam and Federal Territory Day.", "edited": false}, {"author": "Priya Suresh", "ts": "12 Jan 2025, 14:00", "text": "Root Cause: Holiday calendar requires manual annual update - no automated feed. Fix: added 2025 holidays. Raised request to automate calendar sync from public API.", "edited": false}] },
+  { id:'INC-014', title:'Agent bank name absent from allotment notice',   module:'ALLOT-NOTICE',    category:'Bank Name Missing',  priority:'Low',      status:'Resolved',    assignee:'Ahmad Zulkifli', date:'2025-01-09', client:'Domestic',      desc:'', worknotes:[{"author": "Ahmad Zulkifli", "ts": "09 Jan 2025, 10:00", "text": "Allotment notice template pulling AGENT_BANK_SHORT which is NULL for 3 legacy agent banks added before SHORT name field was mandatory.", "edited": false}, {"author": "Ahmad Zulkifli", "ts": "10 Jan 2025, 11:00", "text": "Root Cause: Legacy records missing short name. Fix: populated short name for all 3 banks. Template updated with COALESCE fallback to AGENT_BANK_FULL.", "edited": false}] },
+  { id:'INC-013', title:'Custodian bank not configured for new share class',module:'SHARE-CLASS',   category:'Bank Setup Missing', priority:'Critical', status:'Open',        assignee:'Siti Nordin',    date:'2025-01-07', client:'International', desc:'', worknotes:[{"author": "Siti Nordin", "ts": "07 Jan 2025, 09:00", "text": "Share class SC-2025-003 launched without custodian bank. NAV module throwing SYSERR-204 on every settlement. Fund suspended from trading.", "edited": false}, {"author": "Siti Nordin", "ts": "08 Jan 2025, 14:30", "text": "Root Cause: Share class creation wizard v2.0 missing bank assignment step - omitted during UI rewrite. Critical onboarding gap. Wizard fix in progress.", "edited": false}] },
+  { id:'INC-012', title:'Floating action nav covers table rows',          module:'FAB-NAV',         category:'Nav Error',          priority:'Medium',   status:'Open',        assignee:'Raj Patel',      date:'2025-01-05', client:'Domestic',      desc:'', worknotes:[{"author": "Raj Patel", "ts": "05 Jan 2025, 10:00", "text": "FAB z-index 999, table row hover z-index 1000. FAB appears behind rows on hover. z-index conflict.", "edited": false}, {"author": "Raj Patel", "ts": "06 Jan 2025, 11:30", "text": "Root Cause: z-index conflict. Fix: set FAB z-index to 1001. Deployed and verified.", "edited": false}] },
+  { id:'INC-011', title:'Fee cycle applies wrong basis points tier',      module:'FEE-CYCLE',       category:'Cycle Error',        priority:'High',     status:'In Progress', assignee:'Lee Wei Ming',   date:'2025-01-03', client:'International', desc:'', worknotes:[{"author": "Lee Wei Ming", "ts": "03 Jan 2025, 09:30", "text": "FEE-CYCLE applying 0.5% basis points - fund agreement specifies 0.35%. Tier lookup has incorrect entry for FC-EQUITY-03.", "edited": false}, {"author": "Lee Wei Ming", "ts": "04 Jan 2025, 14:00", "text": "Root Cause: Fee tier table not updated when fund agreement amended Nov 2024. Data fix applied. Validation added to flag tier mismatches during cycle run.", "edited": false}] },
+  { id:'INC-010', title:'Receiving bank name truncated in GIRO file',     module:'GIRO-FILE',       category:'Bank Name Missing',  priority:'Medium',   status:'Open',        assignee:'Priya Suresh',   date:'2025-01-01', client:'Domestic',      desc:'', worknotes:[{"author": "Priya Suresh", "ts": "01 Jan 2025, 09:00", "text": "GIRO-FILE.p field width hardcoded to 30 chars from legacy spec. Banks with longer names get truncated.", "edited": false}, {"author": "Priya Suresh", "ts": "02 Jan 2025, 11:00", "text": "Root Cause: Legacy field width constraint. GIRO spec allows 35 chars. Fix: updated field width and retested with all affected banks.", "edited": false}] },
+  { id:'INC-009', title:'Brokerage settlement bank unconfigured',         module:'BROKER-SETTL',    category:'Bank Setup Missing', priority:'High',     status:'Open',        assignee:'Ahmad Zulkifli', date:'2024-12-30', client:'International', desc:'', worknotes:[{"author": "Ahmad Zulkifli", "ts": "30 Dec 2024, 10:30", "text": "Brokerage account BRK-2024-089 created via API - bank setup workflow not triggered. API endpoint missing post-processor call.", "edited": false}, {"author": "Ahmad Zulkifli", "ts": "31 Dec 2024, 11:00", "text": "Root Cause: API endpoint does not invoke bank-setup post-processor. Fix: added post-processor call to API endpoint. All affected accounts remediated.", "edited": false}] },
+  { id:'INC-008', title:'Wizard nav state lost on browser back',          module:'WIZARD-NAV',      category:'Nav Error',          priority:'Low',      status:'Closed',      assignee:'Siti Nordin',    date:'2024-12-28', client:'Domestic',      desc:'', worknotes:[{"author": "Siti Nordin", "ts": "28 Dec 2024, 09:15", "text": "Wizard state in sessionStorage cleared by browser back event before state can be read. User loses all wizard progress.", "edited": false}, {"author": "Siti Nordin", "ts": "29 Dec 2024, 14:00", "text": "Root Cause: sessionStorage cleared on popstate event. Fix: migrate wizard state to localStorage with TTL. Deployed to production.", "edited": false}] },
+  { id:'INC-007', title:'Distribution cycle sends duplicate payments',    module:'DIST-CYCLE',      category:'Cycle Error',        priority:'Critical', status:'Open',        assignee:'Raj Patel',      date:'2024-12-26', client:'Domestic',      desc:'', worknotes:[{"author": "Raj Patel", "ts": "26 Dec 2024, 10:00", "text": "DIST-CYCLE generating duplicate payments. Race condition when cycle overlaps with manual payment trigger - no exclusive lock check.", "edited": false}, {"author": "Raj Patel", "ts": "27 Dec 2024, 15:00", "text": "Root Cause: Cycle does not acquire exclusive lock before generating payment instructions. Fix: add mutex lock check at cycle entry. Patch deployed.", "edited": false}] },
+  { id:'INC-006', title:'Sponsor bank name missing from KYC document',    module:'KYC-DOC',         category:'Bank Name Missing',  priority:'High',     status:'In Progress', assignee:'Lee Wei Ming',   date:'2024-12-24', client:'International', desc:'', worknotes:[{"author": "Lee Wei Ming", "ts": "24 Dec 2024, 09:00", "text": "KYC template references BANK_DISPLAY_NAME renamed to BANK_FULL_NAME in v3.1. All KYC docs post-v3.1 affected.", "edited": false}, {"author": "Lee Wei Ming", "ts": "26 Dec 2024, 11:30", "text": "Root Cause: Template field name not updated during schema migration. Fix: updated KYC-DOC.p template mapping. Affected documents regenerated.", "edited": false}] },
+  { id:'INC-005', title:'Omnibus bank account not set up in registry',    module:'OMNIBUS-REG',     category:'Bank Setup Missing', priority:'Medium',   status:'Resolved',    assignee:'Priya Suresh',   date:'2024-12-22', client:'Domestic',      desc:'', worknotes:[{"author": "Priya Suresh", "ts": "22 Dec 2024, 11:00", "text": "Omnibus account created via batch script. Bank account setup step skipped - conditional check on account type flag incorrect.", "edited": false}, {"author": "Priya Suresh", "ts": "23 Dec 2024, 14:00", "text": "Root Cause: Batch script bank setup only runs for account_type=RETAIL, not OMNIBUS. Fix applied and tested.", "edited": false}] },
+  { id:'INC-004', title:'Pagination nav loses filter context',            module:'PAGINATION',      category:'Nav Error',          priority:'Low',      status:'Closed',      assignee:'Ahmad Zulkifli', date:'2024-12-20', client:'Domestic',      desc:'', worknotes:[{"author": "Ahmad Zulkifli", "ts": "20 Dec 2024, 09:30", "text": "Pagination filter state stored in JS memory only. Browser back clears state. URL params not updated on filter change.", "edited": false}, {"author": "Ahmad Zulkifli", "ts": "21 Dec 2024, 10:15", "text": "Root Cause: Filter state not pushed to URL. Fix: push filter state to URL query string on change. Resolved in v3.3.", "edited": false}] },
+  { id:'INC-003', title:'Subscription cycle drops midnight transactions', module:'SUB-CYCLE',       category:'Cycle Error',        priority:'Critical', status:'Open',        assignee:'Siti Nordin',    date:'2024-12-18', client:'Domestic',      desc:'', worknotes:[{"author": "Siti Nordin", "ts": "18 Dec 2024, 08:45", "text": "SUB-CYCLE drops transactions arriving between 23:58 and 00:02 due to date boundary using server local time instead of UTC.", "edited": false}, {"author": "Siti Nordin", "ts": "19 Dec 2024, 15:00", "text": "Root Cause: Midnight boundary - cycle uses TODAY() which rolls at local midnight. Fix: replace with UTC-based timestamp. Patch in progress.", "edited": false}] },
+  { id:'INC-002', title:'Originating bank name blank in RTGS message',   module:'RTGS-MSG',         category:'Bank Name Missing',  priority:'High',     status:'Open',        assignee:'Raj Patel',      date:'2024-12-16', client:'International', desc:'', worknotes:[{"author": "Raj Patel", "ts": "16 Dec 2024, 10:00", "text": "RTGS message field 52A pulling from BANK_SHORT_NAME instead of BANK_FULL_NAME. Template variable mismatch introduced in v3.2 release.", "edited": false}, {"author": "Raj Patel", "ts": "17 Dec 2024, 11:20", "text": "Root Cause: Template field renamed in release but message generator not updated. Fix: update RTGS-MSG.p to reference correct field. Deployed to UAT.", "edited": false}] },
+  { id:'INC-001', title:'Collection bank not linked to unit trust fund',  module:'UT-FUND',         category:'Bank Setup Missing', priority:'Medium',   status:'In Progress', assignee:'Lee Wei Ming',   date:'2024-12-14', client:'Domestic',      desc:'', worknotes:[{"author": "Lee Wei Ming", "ts": "14 Dec 2024, 09:15", "text": "Initial investigation: Unit trust fund UT-FUND missing bank_details_id linkage. Onboarding script did not call bank-setup post-processing procedure.", "edited": false}, {"author": "Lee Wei Ming", "ts": "14 Dec 2024, 14:30", "text": "Root Cause: Bank setup post-processing skipped during bulk fund creation. Manual fix applied - linked collection bank to fund record. Monitoring.", "edited": false}] },
 ];
 
 // ── State ─────────────────────────────────────────────
@@ -387,6 +478,7 @@ function openNewModal() {
   document.getElementById('f-desc').value     = '';
   document.getElementById('f-worknote').value = '';
   document.getElementById('similar-panel').style.display = 'none';
+  document.getElementById('ai-panel').classList.remove('open');
   renderWorknotes([]);
   document.getElementById('modal').classList.add('open');
 }
@@ -405,6 +497,7 @@ function openEditModal(idx) {
   document.getElementById('f-desc').value     = r.desc;
   document.getElementById('f-worknote').value = '';
   document.getElementById('similar-panel').style.display = 'none';
+  document.getElementById('ai-panel').classList.remove('open');
   renderWorknotes(r.worknotes || []);
   document.getElementById('modal').classList.add('open');
 }
@@ -734,6 +827,120 @@ function exportCSV() {
   const rows=[cols.join(','),...data.map(r=>cols.map(c=>`"${(r[c]||'').replace(/"/g,'""')}"`).join(','))];
   const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv'})),download:'iDatabase_incidents.csv'});
   a.click();
+}
+
+// ── AI Analysis ───────────────────────────────────────
+async function analyseWithAI() {
+  const btn = document.getElementById('ai-btn');
+  const panel = document.getElementById('ai-panel');
+  const body = document.getElementById('ai-body');
+
+  // Get current incident data from modal
+  const title    = document.getElementById('f-title').value.trim();
+  const category = document.getElementById('f-category').value;
+  const priority = document.getElementById('f-priority').value;
+  const status   = document.getElementById('f-status').value;
+  const assignee = document.getElementById('f-assignee').value.trim();
+  const module_  = document.getElementById('f-module').value.trim();
+  const desc     = document.getElementById('f-desc').value.trim();
+
+  // Get work notes if editing
+  let notes = '';
+  if (editIdx !== null) {
+    const r = filtered[editIdx];
+    const di = data.indexOf(r);
+    const wn = data[di].worknotes || [];
+    if (wn.length) {
+      notes = wn.map(n => n.author + ' (' + n.ts + '): ' + n.text).join('\n');
+    }
+  }
+
+  if (!title) return alert('Please enter a title first.');
+
+  // Show panel and thinking state
+  panel.classList.add('open');
+  body.innerHTML = `<div class="ai-thinking"><span>Analysing incident</span><div class="dots"><span>.</span><span>.</span><span>.</span></div></div>`;
+  btn.disabled = true;
+  btn.textContent = '⏳ Analysing…';
+
+  const prompt = `You are an expert iDatabase Progress 4GL application support analyst. Analyse this incident and provide a structured response.
+
+INCIDENT DETAILS:
+- ID: ${editIdx !== null ? filtered[editIdx].id : 'NEW'}
+- Title: ${title}
+- Category: ${category}
+- Priority: ${priority}
+- Status: ${status}
+- Assignee: ${assignee}
+- Module: ${module_}
+- Description: ${desc || 'Not provided'}
+${notes ? '- Work Notes:\n' + notes : ''}
+
+Provide your analysis in exactly this format:
+
+ROOT CAUSE:
+[2-3 sentences on the likely root cause based on the category, module and description]
+
+IMPACT:
+[1-2 sentences on business impact if not resolved]
+
+RECOMMENDED FIX:
+[3-4 concrete actionable steps to resolve this]
+
+SIMILAR PATTERNS:
+[Note any common patterns this shares with typical ${category} issues in fund management systems]
+
+PRIORITY ASSESSMENT:
+[Confirm or challenge the current priority level with reasoning]`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const result = await res.json();
+    const text = result.content && result.content[0] ? result.content[0].text : '';
+
+    if (!text) throw new Error('No response from AI');
+
+    // Parse sections
+    const sections = [
+      { key: 'ROOT CAUSE',        icon: '🔍', color: '#f85149' },
+      { key: 'IMPACT',            icon: '⚠',  color: '#e3b341' },
+      { key: 'RECOMMENDED FIX',   icon: '✅',  color: '#3fb950' },
+      { key: 'SIMILAR PATTERNS',  icon: '🔗',  color: '#79c0ff' },
+      { key: 'PRIORITY ASSESSMENT', icon: '📊', color: '#d2a8ff' }
+    ];
+
+    let html = '';
+    sections.forEach((s, i) => {
+      const next = sections[i + 1];
+      const start = text.indexOf(s.key + ':');
+      const end = next ? text.indexOf(next.key + ':') : text.length;
+      if (start === -1) return;
+      const content = text.slice(start + s.key.length + 1, end).trim();
+      html += `<div class="ai-section">
+        <div class="ai-section-title" style="color:${s.color};">${s.icon} ${s.key}</div>
+        <div class="ai-section-content">${content.replace(/\n/g,'<br>')}</div>
+      </div>`;
+    });
+
+    if (!html) html = `<div class="ai-section"><div class="ai-section-content">${text.replace(/\n/g,'<br>')}</div></div>`;
+
+    body.innerHTML = html;
+
+  } catch(e) {
+    body.innerHTML = `<div class="ai-section"><div class="ai-section-title" style="color:var(--critical);">⚠ Analysis Failed</div><div class="ai-section-content">${e.message}</div></div>`;
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '🤖 Analyse with AI';
 }
 
 // ── Init ──────────────────────────────────────────────
