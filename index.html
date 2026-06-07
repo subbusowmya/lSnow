@@ -299,6 +299,7 @@
         <span class="ai-icon">🤖</span>
         <span class="ai-title">Claude AI Analysis</span>
         <span class="ai-badge">Powered by Anthropic</span>
+        <button id="save-ai-btn" onclick="saveAIAnalysis()" style="display:none;margin-left:8px;background:rgba(63,185,80,.15);border:1px solid #3fb950;color:#3fb950;border-radius:5px;padding:3px 10px;font-size:.72rem;font-weight:700;cursor:pointer;">💾 Save to Work Notes</button>
       </div>
       <div class="ai-body" id="ai-body">
         <div class="ai-thinking">
@@ -485,6 +486,7 @@ function openNewModal() {
   document.getElementById('f-worknote').value = '';
   document.getElementById('similar-panel').style.display = 'none';
   document.getElementById('ai-panel').classList.remove('open');
+  document.getElementById('save-ai-btn').style.display = 'none';
   renderWorknotes([]);
   document.getElementById('modal').classList.add('open');
 }
@@ -504,6 +506,7 @@ function openEditModal(idx) {
   document.getElementById('f-worknote').value = '';
   document.getElementById('similar-panel').style.display = 'none';
   document.getElementById('ai-panel').classList.remove('open');
+  document.getElementById('save-ai-btn').style.display = 'none';
   renderWorknotes(r.worknotes || []);
   document.getElementById('modal').classList.add('open');
 }
@@ -880,8 +883,13 @@ async function analyseWithAI() {
     try {
       const analysis = generateAnalysis(title, category, priority, status, module_, desc, wnArr);
       renderAnalysis(body, analysis);
+      // Store analysis text for saving
+      window._lastAnalysis = analysis;
+      window._lastAnalysisTitle = title;
+      document.getElementById('save-ai-btn').style.display = 'inline-block';
     } catch(e) {
       body.innerHTML = '<div class="ai-section"><div class="ai-section-title" style="color:var(--critical);">⚠ Analysis Failed</div><div class="ai-section-content">' + e.message + '</div></div>';
+      document.getElementById('save-ai-btn').style.display = 'none';
     }
     btn.disabled = false;
     btn.innerHTML = '🤖 Analyse with AI';
@@ -983,6 +991,45 @@ function generateAnalysis(title, category, priority, status, module_, desc, work
   };
 }
 
+function saveAIAnalysis() {
+  if (!window._lastAnalysis || editIdx === null) return;
+  const a = window._lastAnalysis;
+  const r = filtered[editIdx];
+  const di = data.indexOf(r);
+  const ts = new Date().toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+
+  const noteText = [
+    'AI ANALYSIS',
+    '',
+    'ROOT CAUSE: ' + a.rootCause,
+    '',
+    'IMPACT: ' + a.impact,
+    '',
+    'RECOMMENDED FIX: ' + a.fix,
+    '',
+    'SIMILAR PATTERNS: ' + a.patterns,
+    '',
+    'PRIORITY ASSESSMENT: ' + a.priorityAssessment
+  ].join('\n');
+
+  if (!data[di].worknotes) data[di].worknotes = [];
+  data[di].worknotes.push({ author: 'AI Analysis', ts, text: noteText, edited: false });
+  renderWorknotes(data[di].worknotes);
+  updateIncidentInSB(data[di]);
+
+  // Update save button to show saved
+  const saveBtn = document.getElementById('save-ai-btn');
+  saveBtn.textContent = '✓ Saved!';
+  saveBtn.style.background = 'rgba(63,185,80,.3)';
+  setTimeout(() => {
+    saveBtn.textContent = '💾 Save to Work Notes';
+    saveBtn.style.background = 'rgba(63,185,80,.15)';
+    saveBtn.style.display = 'none';
+  }, 2000);
+
+  window._lastAnalysis = null;
+}
+
 function renderAnalysis(body, a) {
   const sections = [
     { key: 'ROOT CAUSE',          icon: '🔍', color: '#f85149', text: a.rootCause },
@@ -1001,6 +1048,10 @@ function renderAnalysis(body, a) {
 
 // ── Init ──────────────────────────────────────────────
 document.getElementById('modal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
+// Show hardcoded data instantly — no flash of 0
+filtered = [...data];
+applyFilter();
+// Then load from Supabase in background — updates display when ready
 loadFromSupabase();
 </script>
 </body>
