@@ -707,41 +707,31 @@ function linkToSimilar(id) {
   document.getElementById('similar-panel').style.display='none';
 }
 
-// ── Supabase Config ───────────────────────────────────
-const SB_URL = 'https://hjvwmlzvbehitumvrbrx.supabase.co';
-const SB_KEY = 'sb_publishable_4TozzH5Vrpk-fbi8SUoK-w_3XcDGOK_';
-const SB_HEADERS = {
-  'Content-Type': 'application/json',
-  'apikey': SB_KEY,
-  'Authorization': 'Bearer ' + SB_KEY,
-  'Prefer': 'return=minimal'
-};
+// ── Local backend config ──────────────────────────────
+// Relative path: works whether this page is opened as http://localhost:5000
+// or http://<server-ip>:5000 - no hardcoded host needed.
+const API_BASE = '/api/incidents';
 
 async function loadFromSupabase() {
   try {
     showGhToast('Loading incidents...', 'var(--muted)');
-    const res = await fetch(SB_URL + '/rest/v1/incidents?select=*&order=date.desc&limit=1000', {
-      headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
-    });
+    const res = await fetch(API_BASE);
     const rows = await res.json();
     if (rows && rows.length) {
-      // Build map of Supabase rows
-      const sbMap = {};
-      rows.forEach(r => { sbMap[r.id] = r; });
-      // Merge: update hardcoded incidents with Supabase data (preserves worknotes)
+      const dbMap = {};
+      rows.forEach(r => { dbMap[r.id] = r; });
+      // Merge: update hardcoded incidents with DB data (preserves worknotes)
       data = data.map(d => {
-        if (sbMap[d.id]) {
-          const r = sbMap[d.id];
-          const wn = typeof r.worknotes === 'string' ? JSON.parse(r.worknotes || '[]') : (r.worknotes || d.worknotes || []);
-          return { ...d, ...r, worknotes: wn };
+        if (dbMap[d.id]) {
+          const r = dbMap[d.id];
+          return { ...d, ...r, worknotes: r.worknotes || d.worknotes || [] };
         }
         return d;
       });
-      // Add user-created incidents not in hardcoded list
+      // Add DB incidents not in the hardcoded list
       rows.forEach(r => {
         if (!data.find(d => d.id === r.id)) {
-          const wn = typeof r.worknotes === 'string' ? JSON.parse(r.worknotes || '[]') : (r.worknotes || []);
-          data.push({ ...r, worknotes: wn });
+          data.push({ ...r, worknotes: r.worknotes || [] });
         }
       });
       showGhToast('Loaded ' + data.length + ' incidents', 'var(--medium)');
@@ -751,52 +741,45 @@ async function loadFromSupabase() {
       showGhToast('Database seeded with ' + data.length + ' incidents', 'var(--medium)');
     }
   } catch(e) {
-    showGhToast('Could not reach database - showing local data', 'var(--high)');
+    showGhToast('Could not reach server - showing local data', 'var(--high)');
   }
   filtered = [...data];
   applyFilter();
 }
 
 async function seedSupabase() {
-  // Upsert all hardcoded incidents in small batches of 5
-  const rows = data.map(r => ({ ...r, worknotes: JSON.stringify(r.worknotes || []) }));
+  // Upsert all hardcoded incidents one at a time (POST is an upsert server-side)
   let seeded = 0;
-  for (let i = 0; i < rows.length; i += 5) {
-    const batch = rows.slice(i, i + 5);
-    const res = await fetch(SB_URL + '/rest/v1/incidents', {
-      method: 'POST',
-      headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
-      body: JSON.stringify(batch)
-    });
-    if (res.ok || res.status === 201) seeded += batch.length;
-    else { const err = await res.text(); console.warn('Batch error:', err); }
+  for (const r of data) {
+    try {
+      const res = await fetch(API_BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(r)
+      });
+      if (res.ok) seeded++;
+    } catch (e) { console.warn('Seed error:', e); }
   }
-  console.log('Seeded', seeded, 'of', rows.length);
+  console.log('Seeded', seeded, 'of', data.length);
 }
 
 async function saveIncidentToSB(inc) {
-  // Upsert single incident
-  const row = { ...inc, worknotes: JSON.stringify(inc.worknotes || []) };
-  await fetch(SB_URL + '/rest/v1/incidents', {
+  await fetch(API_BASE, {
     method: 'POST',
-    headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
-    body: JSON.stringify(row)
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(inc)
   });
 }
 
 async function deleteIncidentFromSB(id) {
-  await fetch(SB_URL + '/rest/v1/incidents?id=eq.' + encodeURIComponent(id), {
-    method: 'DELETE',
-    headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
-  });
+  await fetch(API_BASE + '/' + encodeURIComponent(id), { method: 'DELETE' });
 }
 
 async function updateIncidentInSB(inc) {
-  const row = { ...inc, worknotes: JSON.stringify(inc.worknotes || []) };
-  await fetch(SB_URL + '/rest/v1/incidents?id=eq.' + encodeURIComponent(inc.id), {
-    method: 'PATCH',
-    headers: SB_HEADERS,
-    body: JSON.stringify(row)
+  await fetch(API_BASE + '/' + encodeURIComponent(inc.id), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(inc)
   });
 }
 
